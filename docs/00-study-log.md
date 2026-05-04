@@ -21,3 +21,23 @@ pages otherwise the server breaks under load.
 
 designed 5 endpoints for linklite today - create, read, redirect, stats, delete.
 starting to see how each design decision has a reason behind it.
+
+day 3 - data modeling and indexes. learned that designing tables is not
+just about storing data - its about knowing how that data will be searched
+and fetched later.
+
+biggest thing that clicked today - indexes are not free. every index you
+add slows down writes because the db has to update the index every time
+you insert or update a row. so you only index columns you actually search by.
+
+learned why click_events will become the heaviest table in linklite -
+every single click adds a row. billions of rows over time. thats why
+daily_link_stats exists - pre-calculate once, read instantly.
+
+also learned that storing raw ip addresses is a privacy violation -
+you hash it first so you can detect duplicate clicks without identifying
+the actual person.
+
+three tables designed today - links, click_events, daily_link_stats.
+starting to see how each table serves a specific purpose and how they
+connect to each other through foreign keys.
