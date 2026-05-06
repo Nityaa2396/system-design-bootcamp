@@ -42,7 +42,7 @@ three tables designed today - links, click_events, daily_link_stats.
 starting to see how each table serves a specific purpose and how they
 connect to each other through foreign keys.
 
-![alt text](image.png)
+![alt text](image.png) - Day-4
 
 day 4 - transactions and correctness. learned that ACID is not just a
 concept - it directly maps to real problems in linklite.
@@ -64,3 +64,26 @@ being slightly off is fine. but slug ownership and link creation must be exact
 
 starting to think about data in two buckets - what must be correct instantly
 and what can be slightly delayed.
+
+Day- 5
+![alt text](image-1.png)
+
+day 5 - caching basics. learned that cache-aside is a reactive approach
+
+- you don't pre-load the cache, you populate it on the first request and
+  serve everyone else from there.
+
+biggest thing that clicked today - cache is not free storage. redis keeps
+everything in memory so it's fast but expensive and not permanent. if redis
+restarts without a db backup, your data is gone. that's why raw click events
+stay in postgresql and only summaries go into cache.
+
+learned what ttl is - a timer on every cached item. without ttl, stale data
+lives forever. a deleted link could still redirect users to the wrong place
+for days.
+
+designed 3 cache entries for linklite - short code lookup, hot stats summary,
+and rate limit counters. each one has a clear key, ttl, and invalidation rule.
+
+rule that stuck: cache what gets read often and changes rarely.
+don't cache what gets written constantly or must always be exact.
