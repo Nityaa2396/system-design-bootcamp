@@ -41,3 +41,26 @@ the actual person.
 three tables designed today - links, click_events, daily_link_stats.
 starting to see how each table serves a specific purpose and how they
 connect to each other through foreign keys.
+
+![alt text](image.png)
+
+day 4 - transactions and correctness. learned that ACID is not just a
+concept - it directly maps to real problems in linklite.
+
+biggest thing that clicked today - not every problem needs a transaction.
+slug conflicts are handled by a unique constraint, click counts are handled
+by atomic sql updates. transactions are for when partial writes would leave
+the database in a broken state.
+
+learned three new terms that sound scary but aren't - race condition is just
+two things editing the same data at the same time and one change getting lost.
+orphan row is data that got created but the user never knew it succeeded.
+soft delete is setting is_deleted = true instead of actually removing the row.
+
+also learned that eventual consistency is okay for some data - click counts
+being slightly off is fine. but slug ownership and link creation must be exact
+
+- user needs to know for sure if their link exists or not.
+
+starting to think about data in two buckets - what must be correct instantly
+and what can be slightly delayed.
