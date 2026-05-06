@@ -87,3 +87,26 @@ and rate limit counters. each one has a clear key, ttl, and invalidation rule.
 
 rule that stuck: cache what gets read often and changes rarely.
 don't cache what gets written constantly or must always be exact.
+
+Day - 6 ![alt text](image-2.png)
+
+day 6 - scaling basics. learned the difference between vertical and
+horizontal scaling. vertical means bigger machine - easy but has a
+hardware ceiling and one point of failure. horizontal means more machines
+
+- resilient, scales indefinitely, but requires the app to be stateless first.
+
+biggest thing that clicked today - stateless doesn't mean the app has no
+state. it means state lives somewhere shared like redis, not on the server
+itself. that's what makes it possible for any server to handle any request.
+
+learned 3 load balancing algorithms - round robin takes turns, least
+connections picks the least busy server, ip hashing sends the same user
+to the same server every time.
+
+sticky sessions are unnecessary for linklite because the app is stateless.
+sessions live in redis so it doesn't matter which server you hit.
+
+redirects are easy to scale - stateless cache reads. analytics are hard
+to scale - heavy aggregation across millions of rows. that difference matters
+when designing for growth.
