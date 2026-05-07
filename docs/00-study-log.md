@@ -110,3 +110,23 @@ sessions live in redis so it doesn't matter which server you hit.
 redirects are easy to scale - stateless cache reads. analytics are hard
 to scale - heavy aggregation across millions of rows. that difference matters
 when designing for growth.
+
+day 7 - diagramming with c4 model. learned that diagrams have levels -
+you don't draw everything at once. context level shows your system and
+what's around it. container level zooms in and shows what's inside.
+
+drew three diagrams for linklite today - context, container, and the
+redirect sequence flow. the sequence diagram made the cache-aside pattern
+click visually - cache hit means db never gets touched, cache miss means
+db gets queried and result gets stored for next time.
+
+biggest takeaway - diagrams are a communication tool. the goal is for
+anyone to look at it and understand the system without reading a single
+line of code.
+
+don't need to memorize mermaid syntax - need to know what to draw
+and why. syntax is always a lookup away.
+
+Week 1 — LinkLite Design Journey
+
+![alt text](image-3.png)
