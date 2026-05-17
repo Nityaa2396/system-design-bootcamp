@@ -8,14 +8,21 @@ import string
 from fastapi.responses import RedirectResponse
 
 router = APIRouter()
-
 def generate_slug(length=6):
     chars = string.ascii_letters + string.digits
     return ''.join(random.choices(chars, k=length))
 
+def get_unique_slug(db: Session):
+    for _ in range(5):
+        slug = generate_slug()
+        existing = db.query(Link).filter(Link.short_code == slug).first()
+        if not existing:
+            return slug
+    raise HTTPException(status_code=500, detail="Could not generate unique slug")
+
 @router.post("/v1/links", response_model=LinkResponse, status_code=201)
 def create_link(payload: LinkCreate, db: Session = Depends(get_db)):
-    slug = payload.custom_slug or generate_slug()
+    slug = payload.custom_slug or get_unique_slug(db)
     
     existing = db.query(Link).filter(Link.short_code == slug).first()
     if existing:
@@ -26,15 +33,3 @@ def create_link(payload: LinkCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(link)
     return link
-
-@router.get("/{slug}")
-def redirect_link(slug: str, db: Session = Depends(get_db)):
-    link = db.query(Link).filter(
-        Link.short_code == slug,
-        Link.is_deleted == False
-    ).first()
-    
-    if not link:
-        raise HTTPException(status_code=404, detail="Link not found")
-    
-    return RedirectResponse(url=link.original_url, status_code=302)
