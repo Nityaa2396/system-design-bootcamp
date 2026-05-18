@@ -130,3 +130,21 @@ and why. syntax is always a lookup away.
 Week 1 — LinkLite Design Journey
 
 ![alt text](image-3.png)
+
+day 13 - rate limiting. learned that without a limit one user can create
+millions of links and crash the database. the fix is simple - store a
+counter in redis with a daily ttl and reject requests once the limit is hit.
+
+redis makes this cheap - incrementing a counter is one operation,
+reads are instant. no db involved at all.
+
+tested it by firing 11 requests in a loop - first 10 succeeded,
+11th got 429 rate limit exceeded. exactly what we designed on day 1
+when we said "no rate limit = one user crashes your db".
+
+the limit is set to 10 for testing. in production this would be
+higher - maybe 100 or 1000 per day depending on the use case.
+
+starting to see how everything from week 1 docs is becoming real code now.
+requirements → api design → data model → cache → rate limiting.
+its all connected.
