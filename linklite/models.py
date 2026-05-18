@@ -12,3 +12,12 @@ class Link(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)
     is_deleted = Column(Boolean, default=False)
+
+class ClickEvent(Base):
+    __tablename__ = "click_events"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    link_id = Column(String, nullable=False, index=True)
+    clicked_at = Column(DateTime(timezone=True), server_default=func.now())
+    user_agent = Column(Text, nullable=True)
+    referer = Column(Text, nullable=True)
