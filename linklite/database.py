@@ -13,3 +13,8 @@ def get_db():
         yield db
     finally:
         db.close()
+
+import redis as redis_client
+from config import REDIS_URL
+
+redis = redis_client.from_url(REDIS_URL, decode_responses=True)

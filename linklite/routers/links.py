@@ -1,3 +1,4 @@
+from database import redis
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -6,6 +7,7 @@ from schemas import LinkCreate, LinkResponse
 import random
 import string
 from fastapi.responses import RedirectResponse
+
 
 router = APIRouter()
 def generate_slug(length=6):
@@ -33,3 +35,26 @@ def create_link(payload: LinkCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(link)
     return link
+
+@router.get("/{slug}")
+def redirect_link(slug: str, db: Session = Depends(get_db)):
+    # check cache first
+    cached_url = redis.get(f"link:{slug}")
+    if cached_url:
+        print(f"CACHE HIT: {slug}")
+        return RedirectResponse(url=cached_url, status_code=302)
+    
+    # cache miss - query DB
+    print(f"CACHE MISS: {slug}")
+    link = db.query(Link).filter(
+        Link.short_code == slug,
+        Link.is_deleted == False
+    ).first()
+    
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    
+    # store in cache with TTL
+    redis.setex(f"link:{slug}", 3600, link.original_url)
+    
+    return RedirectResponse(url=link.original_url, status_code=302)
