@@ -143,8 +143,102 @@ to understand the system without reading a single line of code.
 
 ---
 
-## Week 2 — Coming Next
+## Week 2 — Build the First Version
 
-FastAPI · PostgreSQL · Docker Compose · Building LinkLite for real
+_Status: ✅ Completed_
 
-_Week 2 will be updated once completed._
+This week went from paper designs to a real running backend.
+Every concept from Week 1 became actual working code.
+
+---
+
+### Day 8 — Project Scaffold
+
+**What I built:** FastAPI app skeleton with Docker Compose running
+PostgreSQL and Redis locally. First working endpoint — GET /health.
+
+**Key learning:** Docker Compose lets you spin up an entire backend
+stack with one command. Postgres and Redis running as containers
+means no local installation needed.
+
+---
+
+### Day 9 — Create Link + Redirect Path
+
+**What I built:** POST /v1/links saves a link to PostgreSQL.
+GET /{slug} reads from DB and returns a 302 redirect.
+
+**Key learning:** The redirect is the hottest path in the entire system.
+Every click hits it. The unique index on short_code is what makes
+it fast — without it, every redirect would scan millions of rows.
+
+---
+
+### Day 10 — Slug Generation + ADR-0001
+
+**What I built:** Improved slug generation with auto-retry on collision.
+Wrote first Architecture Decision Record documenting why base62 random
+slugs were chosen over sequential IDs or UUIDs.
+
+**Key learning:** ID generation is a design decision not a coding detail.
+Sequential slugs are predictable — attackers can enumerate all links.
+Random base62 gives 56 billion combinations and is not guessable.
+
+---
+
+### Day 11 — Redis Cache on Redirect Path
+
+**What I built:** Cache-aside pattern on GET /{slug}. First request
+is a cache miss — hits DB and stores in Redis with 1hr TTL.
+Every subsequent request is a cache hit — DB never touched.
+
+**Key learning:** Saw CACHE MISS and CACHE HIT in logs in real time.
+The thing designed on paper in Day 5 is now working in production code.
+
+---
+
+### Day 12 — Async Click Tracking
+
+**What I built:** Background task fires after every redirect to record
+click events in PostgreSQL. User gets redirected instantly — DB write
+happens after the response is sent.
+
+**Key learning:** Never slow down the user-facing path for analytics.
+Losing one click is acceptable. Making every redirect wait for a DB
+write is not.
+
+---
+
+### Day 13 — Rate Limiting
+
+**What I built:** Redis counter per IP address with daily TTL.
+After 10 links created, next request returns 429 Too Many Requests.
+Counter resets automatically at TTL expiry.
+
+**Key learning:** Tested with a loop of 11 requests — first 10 succeeded,
+11th got rate limited. Exactly what was designed in the requirements doc
+on Day 1.
+
+---
+
+### Day 14 — Week 2 Review
+
+**What I tested:** All 5 endpoints end to end. Health check, create link,
+redirect, cache hit, click events in DB — all working.
+
+**Week 2 exit checkpoint — passed:**
+
+- [x] App starts cleanly with docker compose up
+- [x] Redis goes down — redirect still works via DB fallback
+- [x] Cache hit and miss visible in logs
+- [x] Slug generation retries on collision automatically
+- [x] ADR documents why base62 was chosen
+- [x] Click events recorded async without slowing redirect
+
+---
+
+## Week 3 — Coming Next
+
+Observability · SLOs · Failure modes · Rate limiting deep dive
+
+_Week 3 will be updated once completed._
