@@ -24,7 +24,14 @@ def get_unique_slug(db: Session):
     raise HTTPException(status_code=500, detail="Could not generate unique slug")
 
 @router.post("/v1/links", response_model=LinkResponse, status_code=201)
-def create_link(payload: LinkCreate, db: Session = Depends(get_db)):
+def create_link(
+    payload: LinkCreate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    client_ip = request.client.host
+    check_rate_limit(client_ip)
+    
     slug = payload.custom_slug or get_unique_slug(db)
     
     existing = db.query(Link).filter(Link.short_code == slug).first()
@@ -87,3 +94,18 @@ def record_click(link_id: str, user_agent: str, referer: str):
         db.commit()
     finally:
         db.close()
+
+def check_rate_limit(client_ip: str):
+    key = f"ratelimit:{client_ip}"
+    count = redis.get(key)
+    
+    if count and int(count) >= 10:
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded. Try again tomorrow."
+        )
+    
+    if count is None:
+        redis.setex(key, 86400, 1)
+    else:
+        redis.incr(key)
