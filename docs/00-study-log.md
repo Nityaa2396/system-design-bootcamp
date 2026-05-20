@@ -148,3 +148,23 @@ higher - maybe 100 or 1000 per day depending on the use case.
 starting to see how everything from week 1 docs is becoming real code now.
 requirements → api design → data model → cache → rate limiting.
 its all connected.
+
+day 15 - observability. learned that observability means being able to
+ask questions about your system from the outside without digging into code.
+three signals make this possible - logs, metrics and traces.
+
+before today if something broke in linklite i would only know if i was
+watching the terminal. in production nobody watches terminals - the system
+has to tell you automatically.
+
+added structured logging to linklite today. every request now logs
+request_id, method, path, status code and duration in milliseconds.
+
+biggest moment - saw cache miss vs cache hit latency in real numbers for
+the first time. cache miss took 25.5ms hitting postgres. cache hit took
+3.69ms hitting redis only. cache is 7x faster. that's not theory anymore,
+that's measured from my own system.
+
+request_id is important - in production when something fails you need to
+trace that one specific request through all your logs. without a unique id
+per request you're searching through thousands of lines blind.
