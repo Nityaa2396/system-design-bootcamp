@@ -168,3 +168,24 @@ that's measured from my own system.
 request_id is important - in production when something fails you need to
 trace that one specific request through all your logs. without a unique id
 per request you're searching through thousands of lines blind.
+
+day 16 - slos and alerts. learned the difference between sli, slo and sla.
+sli is what you measure, slo is the target, sla is the contract with consequences.
+
+biggest thing that clicked - not everything needs to wake you up at 3am.
+you need to be deliberate about what's a real emergency vs what can wait
+until morning. waking someone up for a non-emergency is as bad as missing
+a real one.
+
+defined 3 slos for linklite today. redirect success rate is the most
+critical - if that drops below 99.9% every short link in the world using
+linklite is broken. that's a 3am call. create link success rate is less
+critical - users are inconvenienced but existing links still work.
+
+latency slo came directly from real data - cache hit was 3.69ms today.
+set p95 target at under 50ms. if it ever hits 500ms consistently that's
+when you page someone.
+
+the pattern: measure something meaningful, set a target, decide what
+happens when you miss it. simple framework but most teams skip it until
+something breaks in production.
