@@ -8,6 +8,7 @@ from schemas import LinkCreate, LinkResponse
 import random
 import string
 from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse
 
 
 router = APIRouter()
@@ -31,17 +32,42 @@ def create_link(
 ):
     client_ip = request.client.host
     check_rate_limit(client_ip)
-    
+
+    # idempotency check
+    idempotency_key = request.headers.get("Idempotency-Key")
+    if idempotency_key:
+        cached = redis.get(f"idempotency:{idempotency_key}")
+        if cached:
+            import json
+            return JSONResponse(
+                status_code=201,
+                content=json.loads(cached)
+            )
+
     slug = payload.custom_slug or get_unique_slug(db)
-    
+
     existing = db.query(Link).filter(Link.short_code == slug).first()
     if existing:
         raise HTTPException(status_code=409, detail="Slug already taken")
-    
+
     link = Link(short_code=slug, original_url=payload.original_url)
     db.add(link)
     db.commit()
     db.refresh(link)
+
+    # store result in redis for idempotency
+    if idempotency_key:
+        import json
+        redis.setex(
+            f"idempotency:{idempotency_key}",
+            86400,
+            json.dumps({
+                "id": link.id,
+                "short_code": link.short_code,
+                "original_url": link.original_url
+            })
+        )
+
     return link
 
 @router.get("/{slug}")
