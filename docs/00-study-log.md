@@ -189,3 +189,24 @@ when you page someone.
 the pattern: measure something meaningful, set a target, decide what
 happens when you miss it. simple framework but most teams skip it until
 something breaks in production.
+
+Day 17 - idempotency and retries. learned that POST requests are not 
+safe to retry by default. if a request times out after the db row is 
+created but before the response is sent - retrying creates a duplicate.
+that's the orphan row problem from day 4 finally getting a real fix.
+
+stripe uses idempotency keys for payments - if a payment request times 
+out you don't want to charge the customer twice. same exact problem in 
+linklite, just less money involved.
+
+the fix is simple - client generates a unique key, sends it as a header 
+every time. server checks redis first. if key exists return the stored 
+response. if not create the link and store the result.
+
+tested it today - sent the same request twice with the same idempotency 
+key. both returned the exact same short code. no duplicate row created 
+in the database.
+
+key stored in redis with 24hr ttl - same as rate limit counter. 
+redis is doing a lot of heavy lifting in this system. caching, 
+rate limiting, idempotency - all redis.
