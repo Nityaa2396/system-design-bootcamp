@@ -1,0 +1,16 @@
+# environment variables - never commit these
+.env
+*.env
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# virtual environments
+venv/
+env/
+
+# mac
+.DS_Store
