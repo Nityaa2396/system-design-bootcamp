@@ -210,3 +210,24 @@ in the database.
 key stored in redis with 24hr ttl - same as rate limit counter. 
 redis is doing a lot of heavy lifting in this system. caching, 
 rate limiting, idempotency - all redis.
+
+Day 18 - api security and abuse. learned the owasp api top 10 - 
+the most common ways apis get attacked or misused in production.
+
+most important thing today wasn't the theory - it was finding a real 
+security gap in linklite. no .gitignore meant .env with database 
+credentials could have been pushed to github at any point. fixed that 
+immediately. small thing, big consequences if missed.
+
+mapped all 5 risks to linklite specifically. broken auth is the biggest 
+gap right now - anyone can create, delete or view any link with zero 
+authentication. acceptable for a local demo, not acceptable for production.
+
+rate limiting already built on day 13 protects against unrestricted 
+resource consumption on the create endpoint. but stats endpoint still 
+has no limit - that's the next thing to fix.
+
+security isn't a feature you add at the end. every endpoint you build 
+without thinking about who should access it and how much they can use it 
+is a gap. day 18 is the first time i looked at linklite like an attacker 
+instead of a builder.
