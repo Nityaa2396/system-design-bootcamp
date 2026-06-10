@@ -254,3 +254,27 @@ if the answer is "the count is off by a few" - eventual is fine.
 
 this is the same framework from day 4 but now i have the proper vocabulary
 for it. strong consistency, eventual consistency, CAP theorem.
+
+Day 20 - failure modes and resilience. learned that knowing your system 
+works is not enough. you need to know what happens when parts of it break.
+
+did a real failure drill today - stopped redis while linklite was running 
+and tried to redirect. before the fix it crashed with 500 internal server 
+error. every short link would have been broken for every user.
+
+the fix was simple - wrap every redis call in try/except. if redis is down, 
+log the error and fall back to postgres. user still gets their redirect, 
+just slightly slower. 20ms instead of 3ms. slower is always better than broken.
+
+after the fix - redis down, users see nothing wrong. redirects still work 
+from postgres. when redis comes back up the cache rebuilds automatically 
+on the next request. zero manual intervention needed.
+
+biggest lesson today - never let your cache layer crash your core user flow. 
+redis is a performance optimization, not a dependency. postgres is the 
+source of truth. design your system so it degrades gracefully when 
+optimizations fail.
+
+the failure drill made everything from week 1 real. we talked about 
+failure modes on paper on day 4. today we actually broke the system 
+and fixed it. that's the difference between knowing and understanding.
