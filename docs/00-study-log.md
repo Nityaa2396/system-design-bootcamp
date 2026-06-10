@@ -231,3 +231,26 @@ security isn't a feature you add at the end. every endpoint you build
 without thinking about who should access it and how much they can use it 
 is a gap. day 18 is the first time i looked at linklite like an attacker 
 instead of a builder.
+
+Day 19 - consistency models. learned the difference between strong 
+consistency and eventual consistency. strong consistency means the system 
+behaves as if it's not distributed at all - every client sees the same 
+data at the same time. eventual consistency means nodes catch up over time 
+but can temporarily return different values.
+
+the cap theorem was the big concept today - in a distributed system you 
+can only guarantee 2 of 3: consistency, availability, partition tolerance.
+network partitions always happen so you're always choosing between 
+consistency and availability. that's why you can't have everything.
+
+mapped linklite to both models. short_code uniqueness needs strong 
+consistency - two users can't share a slug, must be resolved instantly.
+click counts are eventually consistent - losing one click out of thousands 
+is acceptable, counts catch up via daily aggregation.
+
+the pattern: ask "what breaks if this data is wrong or delayed?" 
+if the answer is "users get the wrong page" - strong consistency.
+if the answer is "the count is off by a few" - eventual is fine.
+
+this is the same framework from day 4 but now i have the proper vocabulary
+for it. strong consistency, eventual consistency, CAP theorem.
