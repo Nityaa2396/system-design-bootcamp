@@ -237,8 +237,93 @@ redirect, cache hit, click events in DB — all working.
 
 ---
 
-## Week 3 — Coming Next
+## Week 3 — Think Like a Production Engineer
+*Status: ✅ Completed*
 
-Observability · SLOs · Failure modes · Rate limiting deep dive
+This week shifted from "does it work?" to "how do you know it's working 
+and what happens when it breaks?"
 
-_Week 3 will be updated once completed._
+---
+
+### Day 15 — Observability
+**What I built:** Structured logging middleware on every request.
+Every request now logs request_id, method, path, status code, and 
+duration in milliseconds.
+
+**Key insight:** Saw cache miss vs cache hit latency in real numbers.
+Cache miss = 25.5ms hitting Postgres. Cache hit = 3.69ms hitting Redis.
+Cache is 7x faster — not theory, measured from the actual system.
+
+---
+
+### Day 16 — SLOs and Alerts
+**What I built:** Defined 3 SLOs for LinkLite. Redirect success rate 
+≥ 99.9% — 3am alert if missed. Redirect p95 latency under 50ms — 
+dashboard only. Create link success rate ≥ 99.5%.
+
+**Key insight:** Not everything needs to wake you up at 3am. Be 
+deliberate about what's a real emergency vs what can wait until morning.
+
+---
+
+### Day 17 — Idempotency
+**What I built:** Idempotency key support on POST /v1/links. Same key 
+returns same response — no duplicate link created on retry.
+Stored in Redis with 24hr TTL.
+
+**Key insight:** POST requests are not safe to retry by default.
+Idempotency keys make them safe. Stripe uses this for payments —
+same problem, higher stakes.
+
+---
+
+### Day 18 — API Security
+**What I built:** Security review of LinkLite against OWASP API Top 10.
+Fixed the most critical gap immediately — added .gitignore so .env 
+credentials never get pushed to GitHub.
+
+**Key insight:** Security isn't a feature you add at the end. Every 
+endpoint without authentication or rate limiting is a gap. Looked at 
+LinkLite like an attacker for the first time.
+
+---
+
+### Day 19 — Consistency Models
+**What I built:** Mapped every piece of LinkLite data to the right 
+consistency model. Slug uniqueness = strong. Click counts = eventual.
+
+**Key insight:** CAP theorem — in a distributed system you can only 
+guarantee 2 of 3: consistency, availability, partition tolerance.
+Strong consistency = correct but slow. Eventual = fast but temporarily stale.
+
+---
+
+### Day 20 — Failure Modes + Failure Drill
+**What I built:** Redis failure handling with graceful fallback to 
+PostgreSQL. Wrapped all Redis calls in try/except.
+
+**Key insight:** Actually stopped Redis while the app was running and 
+watched it crash with 500. Fixed it. Restarted Redis and watched it 
+recover automatically. Slower is always better than broken.
+
+---
+
+### Day 21 — Week 3 Review + ADR-0002
+**What I wrote:** ADR-0002 documenting async analytics ingestion decision.
+Why background tasks over synchronous writes. Tradeoffs — speed vs 
+guaranteed delivery.
+
+**Week 3 exit checkpoint — passed:**
+- [x] 3 pillars of observability
+- [x] SLO vs SLA difference
+- [x] Redis failure handled gracefully
+- [x] Idempotency key implemented and tested
+- [x] 2 security risks identified
+- [x] Consistency models mapped to LinkLite data
+
+---
+
+## Week 4 — Coming Next
+Final design doc · Diagrams update · Architecture review · Demo · Postmortem
+
+*Week 4 will be updated once completed.*
