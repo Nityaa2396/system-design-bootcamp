@@ -278,3 +278,27 @@ optimizations fail.
 the failure drill made everything from week 1 real. we talked about 
 failure modes on paper on day 4. today we actually broke the system 
 and fixed it. that's the difference between knowing and understanding.
+
+Day 22 - notification service design. first time designing a system 
+from scratch without any guidance on what the system should look like.
+just applied the same framework from week 1 to a completely different problem.
+
+biggest thing that clicked - a notification service doesn't decide when 
+to send notifications. it responds to events from other services. payment 
+service says "charge succeeded", notification service sends the email. 
+clean separation of concerns.
+
+two tables instead of one - notifications stores the request, 
+delivery_attempts stores every send attempt separately. one notification 
+can have multiple attempts if the provider fails. tracking each attempt 
+gives you a full audit trail of what happened and when.
+
+provider failover was the most interesting design decision - if sendgrid 
+goes down you can't just stop sending emails. you automatically switch to 
+mailgun, then aws ses, then dead letter queue. the system degrades 
+gracefully instead of failing completely. same pattern as the redis 
+fallback in linklite.
+
+the framework transfers. requirements → api → schema → queue → 
+failure modes. same structure, different system. that's the point of 
+week 4.
