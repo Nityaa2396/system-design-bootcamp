@@ -302,3 +302,28 @@ fallback in linklite.
 the framework transfers. requirements → api → schema → queue → 
 failure modes. same structure, different system. that's the point of 
 week 4.
+
+Day 23 - notification delivery guarantees. learned the three delivery 
+semantics - at-most-once, at-least-once, and exactly-once.
+
+exactly-once sounds ideal but is extremely hard to achieve in distributed 
+systems. in practice you choose between at-most-once and at-least-once 
+depending on what failure is more acceptable.
+
+for payment receipts losing the notification is worse than a duplicate - 
+at-least-once. for marketing emails a duplicate is worse than missing one - 
+at-most-once. the right choice depends on the use case not a blanket rule.
+
+the timeout problem is the tricky one - provider accepts the message but 
+confirmation never arrives. system retries. user gets it twice. fix is a 
+dedupe key in redis - same pattern as idempotency key in linklite. 
+if already sent, skip. simple but effective.
+
+dead letter queue was the other key concept - after all retries fail, 
+message goes here instead of disappearing. nothing is lost, just delayed. 
+engineering team gets alerted and can manually replay. graceful degradation 
+again - same pattern keeps showing up everywhere.
+
+starting to see that distributed systems have a small set of core patterns 
+that repeat across every system. retry with backoff, dedupe keys, dead 
+letter queues, graceful fallback. learn the patterns once, apply everywhere.
