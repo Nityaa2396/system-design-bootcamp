@@ -327,3 +327,28 @@ again - same pattern keeps showing up everywhere.
 starting to see that distributed systems have a small set of core patterns 
 that repeat across every system. retry with backoff, dedupe keys, dead 
 letter queues, graceful fallback. learn the patterns once, apply everywhere.
+
+Day 24 - notification service slos and abuse controls. applied the same 
+slo and security frameworks from week 3 to a completely different system. 
+starting to feel like a repeatable process instead of one-off exercises.
+
+three slos defined - delivery success rate, delivery latency, and dead 
+letter queue size. the third one was new - monitoring queue size is how 
+you catch silent failures. messages piling up in the dead letter queue 
+means something is broken upstream even if the api is still returning 200s.
+
+circuit breaker was the most interesting concept today. works exactly like 
+a physical circuit breaker - too many failures trips the circuit, requests 
+stop hitting the failing provider automatically, system routes to backup. 
+after a cooldown period it resets and tries again. no human intervention needed.
+
+abuse controls map directly to linklite patterns - per-user rate limiting 
+is the same redis counter pattern from day 13, just scoped differently. 
+per-service budget limits are new - important when multiple internal 
+services share one notification system. one runaway service shouldn't be 
+able to spam all users and exhaust the daily budget.
+
+the pattern across week 4 is becoming clear - every system needs the same 
+things: slos to measure reliability, rate limits to prevent abuse, circuit 
+breakers for external dependencies, dead letter queues for failure recovery. 
+learn the patterns once, apply everywhere.
