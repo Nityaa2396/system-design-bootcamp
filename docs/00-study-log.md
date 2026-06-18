@@ -372,3 +372,29 @@ that's why you log errors even when you can't fix them.
 github renders mermaid diagrams automatically in markdown files. diagrams 
 live as code in git - version controlled, diffable, no image files needed. 
 that's the right way to store diagrams in a real engineering repo.
+
+Day 26 - full design document. wrote the complete story of linklite in 
+one document. 16 sections covering everything from problem statement to 
+future improvements. this is the document you'd show in a technical 
+interview or design review.
+
+the tradeoffs section was the most valuable part. every decision we made 
+over 26 days had a reason - 302 not 301, base62 not sequential, async not 
+sync, cache-aside not write-through, soft delete not hard delete. writing 
+them all in one place made the system feel coherent instead of a collection 
+of random choices.
+
+the failure modes table told the same story more concisely than the week 3 
+docs. redis down - fallback to db. postgres down - cache absorbs hot traffic. 
+background task fails - click lost, acceptable. one table, four scenarios, 
+clear user impact and mitigation for each.
+
+biggest realisation writing this doc - the system makes sense. every piece 
+connects to every other piece. requirements drove api design, api design 
+drove data model, data model drove caching strategy, caching strategy drove 
+failure handling. it wasn't random - it was a chain of decisions each 
+justified by the one before it.
+
+this document is the portfolio artifact. not the code, not the diagrams - 
+this. anyone reading this can understand what was built, why it was built 
+this way, and what would need to change to take it to production.
