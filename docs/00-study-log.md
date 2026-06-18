@@ -352,3 +352,23 @@ the pattern across week 4 is becoming clear - every system needs the same
 things: slos to measure reliability, rate limits to prevent abuse, circuit 
 breakers for external dependencies, dead letter queues for failure recovery. 
 learn the patterns once, apply everywhere.
+
+Day 25 - final diagrams for linklite. updated all diagrams to reflect 
+everything built over 4 weeks - redis failure handling, idempotency, 
+rate limiting, async click tracking. the diagrams from day 7 were just 
+outlines. these ones tell the full story.
+
+the redirect sequence diagram was the most complex - three separate paths 
+in one diagram. redis down fallback, cache hit, cache miss. each path ends 
+with a 302 redirect but takes a completely different route to get there.
+seeing all three paths side by side made the failure handling logic click 
+visually.
+
+learned the difference between sync and async properly today while 
+explaining the background worker. async means give the task and leave - 
+don't wait, don't check. the tradeoff is you never know if it failed. 
+that's why you log errors even when you can't fix them.
+
+github renders mermaid diagrams automatically in markdown files. diagrams 
+live as code in git - version controlled, diffable, no image files needed. 
+that's the right way to store diagrams in a real engineering repo.
