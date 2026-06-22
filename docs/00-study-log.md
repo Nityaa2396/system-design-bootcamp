@@ -398,3 +398,30 @@ justified by the one before it.
 this document is the portfolio artifact. not the code, not the diagrams - 
 this. anyone reading this can understand what was built, why it was built 
 this way, and what would need to change to take it to production.
+
+Day 27 - architecture review. reviewed linklite against 7 pillars - 
+operational excellence, security, reliability, performance, cost, 
+observability, simplicity. honest evaluation of what's strong, weak, 
+and missing.
+
+overall rating 6/10. solid v1 foundation but not production ready. 
+that's the honest answer and that's fine - v1 is supposed to prove 
+the concept, not handle netflix-scale traffic.
+
+security is the lowest score at 5/10. no authentication on any endpoint 
+is the biggest gap. anyone can create, delete or view any link right now. 
+acceptable for a local demo, completely unacceptable for production.
+
+performance is the highest at 7/10. redis cache, indexed slug lookup, 
+async click tracking - the hot path is well optimised. the gap is 
+click_events growing unbounded with no archiving strategy. at 10k clicks 
+per day that table becomes expensive fast.
+
+the architecture review format is useful beyond this project. same 7 
+pillars apply to any system. in an interview if someone asks "what would 
+you improve?" - walk through these pillars one by one. shows structured 
+thinking instead of random suggestions.
+
+top 3 fixes before production: authentication, postgresql read replica, 
+automated tests and ci/cd. in that order. security first, reliability 
+second, developer experience third.
