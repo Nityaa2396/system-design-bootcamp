@@ -1,4 +1,23 @@
 ---
+## Functional requirements (updated)
+1. **Record** — capture live meeting audio in real time
+2. **Transcribe** — convert audio to text with speaker identification
+3. **Summarize** — generate summary and action items after meeting ends
+4. **Search** — full text search across past transcripts
+
+## Scale estimates
+- Daily active meetings: 500,000
+- Peak simultaneous meetings: 100,000
+- Audio data per meeting: ~50MB
+- Daily audio storage: ~25TB
+- Transcript lines per meeting: ~500
+- Daily transcript lines: 250 million
+
+## Why scale changes architecture
+- 100k simultaneous meetings → Kafka with 100k partitions, horizontal STT scaling
+- 25TB audio/day → object storage (S3), not PostgreSQL
+- 250M transcript lines/day → Elasticsearch for search, not PostgreSQL
+- GPU clusters needed for real-time STT at this scale
 
 ## Key components
 
