@@ -138,3 +138,30 @@ Solution: horizontal scaling of audio ingestion and STT services.
 | AI component | None | STT model + LLM |
 | Storage | PostgreSQL + Redis | PostgreSQL + object storage + Elasticsearch |
 | Hardest problem | Scale redirects cheaply | Speaker diarization at scale |
+
+
+## Kafka in the Otter.ai pipeline
+
+### Why Kafka?
+STT model shouldn't directly call WebSocket, PostgreSQL and
+Elasticsearch. If any service goes down, STT crashes too.
+Kafka decouples them — STT drops message and moves on.
+
+### Topics
+- `raw-audio-chunks` — audio ingestion → STT model
+- `transcript-lines` — STT model → 3 consumer groups
+
+### Consumer groups
+- WebSocket servers — push transcript to browser in real time
+- PostgreSQL writers — store transcript permanently
+- Elasticsearch indexers — index for search
+
+### Partitioning strategy
+One partition per meeting — guarantees transcript lines
+for the same meeting are processed in order.
+10,000 simultaneous meetings = 10,000 partitions.
+
+### Failure handling
+If Elasticsearch goes down — WebSocket and PostgreSQL
+keep working. Messages wait in Kafka. When Elasticsearch
+recovers — reads from last offset, catches up automatically.
