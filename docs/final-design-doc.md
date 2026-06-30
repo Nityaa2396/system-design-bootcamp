@@ -173,3 +173,33 @@ Evidence: cache miss = 25.5ms, cache hit = 3.69ms — 7x difference.
 - Add link expiry enforcement via background job
 - Add Google Safe Browsing URL validation
 - Move from background tasks to proper worker queue
+
+## Scaling beyond v1
+
+### Sharding
+When links table exceeds ~100M rows, shard by short_code
+using consistent hashing.
+
+- Sharding key: short_code — every redirect already looks up by this
+- Strategy: consistent hashing — adding servers only moves a small
+  slice of data, not everything
+- Add routing layer between API and database shards
+- Tradeoff: cross-shard queries (global analytics) become expensive
+  — need a separate aggregation pipeline
+
+### Replication
+Add primary-replica replication immediately — not just at scale.
+This is a reliability decision, not a scale decision.
+
+- All writes → primary (creates, deletes — 5% of traffic)
+- All reads → replicas (redirects, stats — 95% of traffic)
+- One replica as hot standby — auto-promotes if primary dies
+- Tradeoff: replication lag — newly created link may not be visible
+  on replica for a few milliseconds
+- Fix: route read-after-write directly to primary
+
+### Combined at scale
+Shard 1: Primary + 2 replicas
+Shard 2: Primary + 2 replicas
+Shard 3: Primary + 2 replicas
+Sharding handles size. Replication handles reliability.
