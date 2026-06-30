@@ -184,3 +184,47 @@ for the same meeting are processed in order.
 If Elasticsearch goes down — WebSocket and PostgreSQL
 keep working. Messages wait in Kafka. When Elasticsearch
 recovers — reads from last offset, catches up automatically.
+
+
+## STT model choices
+
+| Type | Examples | When to use |
+|---|---|---|
+| Third party API | OpenAI Whisper API, Google Speech-to-Text, AssemblyAI | Small apps, under 10k minutes/day, pay per minute |
+| Self-hosted open source | Whisper (open source), wav2vec 2.0 | Medium scale, when API costs too high, need privacy |
+| Custom trained model | Otter/Google/Amazon proprietary models | Large scale, millions of dollars to train, best accuracy for domain |
+
+**Decision rule:**
+- Under 10k min/day → third party API
+- 10k–1M min/day → self-hosted Whisper on GPU
+- Over 1M min/day → custom trained model
+- Privacy required → self-hosted regardless of scale
+
+**Why not API at Otter's scale:** 100k simultaneous meetings × 45 min
+= 4.5M minutes/day. At $0.006/min that's $27,000/day. Not viable —
+must self-host or train custom model.
+
+---
+
+## Storage types
+
+| Storage | Stores | Otter uses for |
+|---|---|---|
+| Database (PostgreSQL) | Structured rows/columns | meetings, transcript_lines, summaries, users |
+| Object storage (S3) | Files — audio, video, binary | Raw meeting audio (50MB/meeting, 25TB/day) |
+| Search engine (Elasticsearch) | Text optimized for full-text search | Indexing 250M transcript lines/day |
+| Cache (Redis) | Temporary, fast reads | Active meeting state, session data |
+
+**Simple rule:**
+- Files/audio/video → object storage (S3)
+- Structured relational data → database (PostgreSQL)
+- Full text search at scale → search engine (Elasticsearch)
+- Temporary fast reads → cache (Redis)
+
+**Small app equivalent for storage:**
+- Object storage → Cloudinary, Firebase Storage
+- Search → PostgreSQL full-text search (works up to a few million rows)
+
+**Large app equivalent:**
+- Object storage → AWS S3, GCS, Azure Blob
+- Search → Elasticsearch, Typesense, Algolia
