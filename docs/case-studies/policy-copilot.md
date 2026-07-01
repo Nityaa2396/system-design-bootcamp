@@ -34,25 +34,38 @@ in the actual company policy document.
 
 ## Architecture — what happens under the hood
 
-### The pipeline (RAG — Retrieval Augmented Generation)
-User uploads policy doc
+### V1 pipeline (original)
+User loads policy
 ↓
-Document parsing — extract raw text from PDF/URL/paste
-↓
-Chunking — split into smaller pieces (500-1000 tokens each)
+Full policy text stored in session
 ↓
 User asks question
 ↓
-Relevant chunks selected
+ENTIRE policy sent to Claude every time
 ↓
-Prompt assembled:
-"Here is the company policy: {chunks}
-Employee question: {question}
-Give a clear decision with citation."
+Claude generates decision
+
+**Problem:** 50 page document = 50 pages sent to Claude on every question.
+Slow, expensive, hits context limits on large documents.
+
+---
+
+### V2 pipeline (current — RAG with Qdrant)
+User loads policy
 ↓
-Anthropic API (Claude) generates decision
+chunk_by_heading() splits by markdown heading
 ↓
-Response displayed with citation + alternatives
+Each chunk embedded using trigram n-gram vectors
+↓
+Chunks stored in Qdrant with policy_id
+↓
+User asks question
+↓
+Question embedded → semantic search → top 3 relevant chunks retrieved
+↓
+Only relevant chunks sent to Claude (not full document)
+↓
+Claude returns structured decision with citation
 
 ### Why RAG and not just "send to LLM"?
 LLMs are trained on general data — not your specific company policy.
@@ -60,6 +73,14 @@ Without RAG, Claude would guess or hallucinate policy details.
 RAG grounds the answer in the actual document — that's what enables
 citations. No document = no citation = not trustworthy for compliance.
 
+### Why V2 is better than V1
+| | V1 | V2 |
+|---|---|---|
+| 10 page policy | Works fine | Works fine |
+| 50 page policy | Slow, may hit context limit | Fast — only 2-3 chunks sent |
+| Citation accuracy | General section reference | Precise — from retrieved chunk |
+| Cost per question | High — full doc every time | Low — 3 chunks only |
+| Re-indexing needed | No | Only on first load per policy |
 ---
 
 ## Tech stack
