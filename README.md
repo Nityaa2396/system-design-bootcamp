@@ -1,3 +1,18 @@
+## Live Demo
+
+API: https://linklite-api-production.up.railway.app
+Health: https://linklite-api-production.up.railway.app/health
+
+### Try it
+
+Create a short link:
+
+```bash
+curl -X POST https://linklite-api-production.up.railway.app/v1/links \
+  -H "Content-Type: application/json" \
+  -d '{"original_url": "https://github.com/Nityaa2396"}'
+```
+
 # system-design-bootcamp
 
 A 30-day hands-on system design bootcamp — documenting the learning journey week by week.
@@ -11,7 +26,8 @@ A 30-day hands-on system design bootcamp — documenting the learning journey we
 ---
 
 ## Week 1 — Learning the Language of System Design
-*Status: ✅ Completed*
+
+_Status: ✅ Completed_
 
 No code this week. The focus was on thinking and writing like a system designer.
 Every day produced a real design document for LinkLite.
@@ -19,6 +35,7 @@ Every day produced a real design document for LinkLite.
 ---
 
 ### Day 1 — Requirements Thinking
+
 **What I learned:** The difference between functional and non-functional requirements.
 Functional = what a system does. Non-functional = how well it does it.
 
@@ -26,6 +43,7 @@ Functional = what a system does. Non-functional = how well it does it.
 A URL shortener with no rate limiting = one user can crash your entire database.
 
 **Deliverable:** `docs/01-requirements.md`
+
 - Problem statement, functional and non-functional requirements
 - 5 PM questions before building (slug conflicts, abuse prevention, TTL, broken destinations, rate limits)
 - 3 hidden constraints teams forget (click event storage cost, redirect uptime, predictable short codes = security risk)
@@ -33,6 +51,7 @@ A URL shortener with no rate limiting = one user can crash your entire database.
 ---
 
 ### Day 2 — REST API Design
+
 **What I learned:** REST is a specific style of API that uses HTTP methods,
 URLs as resource names, and status codes as contracts.
 
@@ -40,12 +59,14 @@ URLs as resource names, and status codes as contracts.
 you lose all analytics. 302 always checks the server first. Always use 302 for URL shorteners.
 
 **Deliverable:** `docs/02-api-contract.md`
+
 - 5 endpoints designed: POST /v1/links · GET /v1/links/{id} · GET /{slug} · GET /v1/links/{id}/stats · DELETE /v1/links/{id}
 - Each endpoint has: purpose · request · response · status codes · idempotency · auth
 
 ---
 
 ### Day 3 — Data Modeling and Indexes
+
 **What I learned:** Designing tables is not just about storing data —
 it's about knowing how that data will be searched and fetched later.
 
@@ -53,6 +74,7 @@ it's about knowing how that data will be searched and fetched later.
 the DB updates the index on every insert/update. Only index columns you actually search by.
 
 **Deliverable:** `docs/03-data-model.md`
+
 - 3 tables: links · click_events · daily_link_stats
 - Index decisions with reasoning for each
 - Why raw IP addresses must be hashed (GDPR/privacy)
@@ -60,6 +82,7 @@ the DB updates the index on every insert/update. Only index columns you actually
 ---
 
 ### Day 4 — Transactions and Correctness
+
 **What I learned:** ACID properties map directly to real problems in LinkLite.
 Not every problem needs a transaction — the right tool depends on the failure mode.
 
@@ -67,12 +90,14 @@ Not every problem needs a transaction — the right tool depends on the failure 
 link creation) and eventually consistent ok (click counts, deleted links).
 
 **Deliverable:** `docs/04-correctness.md`
+
 - 4 failure scenarios: duplicate slug · timeout after row created · 1000 simultaneous clicks · delete during redirect
 - Solutions: unique constraint · idempotent retry · atomic SQL update · soft delete
 
 ---
 
 ### Day 5 — Caching Basics
+
 **What I learned:** Cache-aside is a reactive approach — only populate the
 cache when data is first requested. Never pre-load what nobody has asked for yet.
 
@@ -80,6 +105,7 @@ cache when data is first requested. Never pre-load what nobody has asked for yet
 Don't cache what gets written constantly or must always be accurate.
 
 **Deliverable:** `docs/05-cache-plan.md`
+
 - 3 things cached: short code lookup · hot stats summary · rate limit counters
 - Each with: cache key · TTL · fill strategy · invalidation rule
 - 3 things not cached with reasoning: raw click events · newly created links · auth data
@@ -87,6 +113,7 @@ Don't cache what gets written constantly or must always be accurate.
 ---
 
 ### Day 6 — Scaling Basics
+
 **What I learned:** Stateless doesn't mean the app has no state —
 it means state lives in Redis, not on the server itself.
 That's what makes horizontal scaling possible.
@@ -95,6 +122,7 @@ That's what makes horizontal scaling possible.
 Analytics are hard to scale (heavy aggregation across millions of rows).
 
 **Deliverable:** `docs/06-scaling-basics.md`
+
 - Vertical vs horizontal scaling tradeoffs
 - Load balancing algorithms: round robin · least connections · IP hashing
 - Mermaid architecture diagram: Client → LB → API servers → Postgres + Redis
@@ -102,6 +130,7 @@ Analytics are hard to scale (heavy aggregation across millions of rows).
 ---
 
 ### Day 7 — Diagramming Properly
+
 **What I learned:** C4 model gives a standard way to diagram any system
 at different levels of detail. Context = what's around the system.
 Container = what's inside the system.
@@ -110,6 +139,7 @@ Container = what's inside the system.
 to understand the system without reading a single line of code.
 
 **Deliverable:** `docs/07-diagrams.md`
+
 - Context diagram — LinkLite + User + Google Safe Browsing
 - Container diagram — API · PostgreSQL · Redis · Background Worker
 - Sequence diagram — full redirect flow with cache hit and cache miss paths
@@ -129,7 +159,8 @@ to understand the system without reading a single line of code.
 ---
 
 ## Week 2 — Build the First Version
-*Status: ✅ Completed*
+
+_Status: ✅ Completed_
 
 This week went from paper designs to a real running backend.
 Every concept from Week 1 became actual working code.
@@ -137,6 +168,7 @@ Every concept from Week 1 became actual working code.
 ---
 
 ### Day 8 — Project Scaffold
+
 **What I built:** FastAPI app skeleton with Docker Compose running
 PostgreSQL and Redis locally. First working endpoint — GET /health.
 
@@ -147,6 +179,7 @@ means no local installation needed.
 ---
 
 ### Day 9 — Create Link + Redirect Path
+
 **What I built:** POST /v1/links saves a link to PostgreSQL.
 GET /{slug} reads from DB and returns a 302 redirect.
 
@@ -157,6 +190,7 @@ it fast — without it, every redirect would scan millions of rows.
 ---
 
 ### Day 10 — Slug Generation + ADR-0001
+
 **What I built:** Improved slug generation with auto-retry on collision.
 Wrote first Architecture Decision Record documenting why base62 random
 slugs were chosen over sequential IDs or UUIDs.
@@ -168,6 +202,7 @@ Random base62 gives 56 billion combinations and is not guessable.
 ---
 
 ### Day 11 — Redis Cache on Redirect Path
+
 **What I built:** Cache-aside pattern on GET /{slug}. First request
 is a cache miss — hits DB and stores in Redis with 1hr TTL.
 Every subsequent request is a cache hit — DB never touched.
@@ -178,6 +213,7 @@ Cache miss = 25.5ms. Cache hit = 3.69ms. Cache is 7x faster.
 ---
 
 ### Day 12 — Async Click Tracking
+
 **What I built:** Background task fires after every redirect to record
 click events in PostgreSQL. User gets redirected instantly — DB write
 happens after the response is sent.
@@ -189,6 +225,7 @@ write is not.
 ---
 
 ### Day 13 — Rate Limiting
+
 **What I built:** Redis counter per IP address with daily TTL.
 After 10 links created, next request returns 429 Too Many Requests.
 Counter resets automatically at TTL expiry.
@@ -199,10 +236,12 @@ Counter resets automatically at TTL expiry.
 ---
 
 ### Day 14 — Week 2 Review
+
 **What I tested:** All 5 endpoints end to end. Health check, create link,
 redirect, cache hit, click events in DB — all working.
 
 **Week 2 exit checkpoint — passed:**
+
 - [x] App starts cleanly with docker compose up
 - [x] Cache hit and miss visible in logs
 - [x] Slug generation retries on collision automatically
@@ -212,7 +251,8 @@ redirect, cache hit, click events in DB — all working.
 ---
 
 ## Week 3 — Think Like a Production Engineer
-*Status: ✅ Completed*
+
+_Status: ✅ Completed_
 
 This week shifted from "does it work?" to "how do you know it's working
 and what happens when it breaks?"
@@ -220,6 +260,7 @@ and what happens when it breaks?"
 ---
 
 ### Day 15 — Observability
+
 **What I built:** Structured logging middleware on every request.
 Every request now logs request_id, method, path, status code, and
 duration in milliseconds.
@@ -230,6 +271,7 @@ hitting Redis. Cache is 7x faster — measured from the actual system.
 ---
 
 ### Day 16 — SLOs and Alerts
+
 **What I built:** Defined 3 SLOs for LinkLite. Redirect success rate
 ≥ 99.9% — 3am alert if missed. Redirect p95 latency under 50ms —
 dashboard only. Create link success rate ≥ 99.5%.
@@ -240,6 +282,7 @@ deliberate about what's a real emergency vs what can wait until morning.
 ---
 
 ### Day 17 — Idempotency
+
 **What I built:** Idempotency key support on POST /v1/links. Same key
 returns same response — no duplicate link created on retry.
 Stored in Redis with 24hr TTL.
@@ -250,6 +293,7 @@ Idempotency keys make them safe. Stripe uses this for payments.
 ---
 
 ### Day 18 — API Security
+
 **What I built:** Security review of LinkLite against OWASP API Top 10.
 Fixed the most critical gap — added .gitignore so .env credentials
 never get pushed to GitHub.
@@ -260,6 +304,7 @@ at LinkLite like an attacker for the first time.
 ---
 
 ### Day 19 — Consistency Models
+
 **What I built:** Mapped every piece of LinkLite data to the right
 consistency model. Slug uniqueness = strong. Click counts = eventual.
 
@@ -269,6 +314,7 @@ tolerance. You can only guarantee 2 of 3.
 ---
 
 ### Day 20 — Failure Modes + Failure Drill
+
 **What I built:** Redis failure handling with graceful fallback to
 PostgreSQL. Wrapped all Redis calls in try/except.
 
@@ -278,10 +324,12 @@ watched it crash with 500. Fixed it. Slower is always better than broken.
 ---
 
 ### Day 21 — Week 3 Review + ADR-0002
+
 **What I wrote:** ADR-0002 documenting async analytics ingestion decision.
 Why background tasks over synchronous writes.
 
 **Week 3 exit checkpoint — passed:**
+
 - [x] 3 pillars of observability
 - [x] SLO vs SLA difference
 - [x] Redis failure handled gracefully
@@ -292,7 +340,8 @@ Why background tasks over synchronous writes.
 ---
 
 ## Week 4 — Design Like a Senior Engineer
-*Status: ✅ Completed*
+
+_Status: ✅ Completed_
 
 Take everything built and learned and turn it into something
 presentable, explainable, and defensible.
@@ -300,6 +349,7 @@ presentable, explainable, and defensible.
 ---
 
 ### Day 22 — Paper Design #2: Notification Service
+
 **What I designed:** A notification service supporting email, SMS,
 and in-app notifications from scratch. Applied Week 1 framework to
 a completely different system.
@@ -311,6 +361,7 @@ degradation pattern as Redis fallback in LinkLite.
 ---
 
 ### Day 23 — Notification Delivery Guarantees
+
 **What I learned:** At-most-once vs at-least-once delivery. Dedupe keys
 prevent duplicate notifications on retry. Dead letter queue catches
 messages that fail all retry attempts.
@@ -321,6 +372,7 @@ payment receipts need at-least-once, marketing emails need at-most-once.
 ---
 
 ### Day 24 — Notification SLOs + Abuse Controls
+
 **What I built:** 3 SLOs for notification service. Circuit breaker
 pattern for provider failures. Per-user and per-service rate limits.
 
@@ -330,6 +382,7 @@ routes to backup provider without human intervention.
 ---
 
 ### Day 25 — Final Diagrams for LinkLite
+
 **What I built:** 5 Mermaid diagrams in diagrams/ folder — context,
 container, create-link sequence, redirect sequence, async analytics flow.
 
@@ -340,6 +393,7 @@ no image files needed.
 ---
 
 ### Day 26 — Full Design Document
+
 **What I wrote:** Complete LinkLite design doc — 16 sections covering
 problem statement through future improvements.
 
@@ -350,6 +404,7 @@ decisions each justified by the one before it.
 ---
 
 ### Day 27 — Architecture Review
+
 **What I reviewed:** LinkLite against 7 pillars — operational excellence,
 security, reliability, performance, cost, observability, simplicity.
 
@@ -359,6 +414,7 @@ Top gaps: no authentication, single Postgres instance, no automated tests.
 ---
 
 ### Day 28 — Spoken Walkthrough
+
 **What I practiced:** 10-minute verbal walkthrough of LinkLite covering
 problem, design, data model, read/write paths, cache, async, failures,
 tradeoffs.
@@ -369,6 +425,7 @@ it under pressure is where most people get caught in interviews.
 ---
 
 ### Day 29 — Fresh Design Drill: Pastebin
+
 **What I designed:** Pastebin from scratch in 45 minutes — requirements,
 API, schema, caching, async, failure modes.
 
@@ -378,11 +435,13 @@ Pastebin is simpler than LinkLite — store and retrieve text, no redirect.
 ---
 
 ### Day 30 — Final Demo + Postmortem
+
 **What I demoed:** All endpoints working end to end — health check,
 create link, idempotency, redirect, cache hit/miss, rate limiting,
 click events in DB.
 
 **Week 4 exit checkpoint — passed:**
+
 - [x] Second system designed from scratch
 - [x] Final diagrams complete and rendering on GitHub
 - [x] Full design document written
@@ -409,6 +468,7 @@ linklite/
 ```
 
 **Key decisions:**
+
 - 302 not 301 — analytics always captured
 - Base62 random slugs — not enumerable
 - Cache-aside — only cache what's requested
