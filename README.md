@@ -13,6 +13,20 @@ curl -X POST https://linklite-api-production.up.railway.app/v1/links \
   -d '{"original_url": "https://github.com/Nityaa2396"}'
 ```
 
+Use the short link — paste in your browser:
+
+https://linklite-api-production.up.railway.app/<short_code>
+
+What's running in production:
+
+FastAPI backend on Railway
+PostgreSQL — stores links and click events
+Redis — caches redirects (cache hit ~3ms vs miss ~25ms)
+Rate limiting — 10 creates per IP per day
+Idempotency keys — safe to retry without duplicates
+Async click tracking — redirects never blocked by analytics
+Structured logging — every request logged with latency
+
 # system-design-bootcamp
 
 A 30-day hands-on system design bootcamp — documenting the learning journey week by week.
