@@ -1,0 +1,289 @@
+---
+## Functional requirements (updated)
+1. **Record** — capture live meeting audio in real time
+2. **Transcribe** — convert audio to text with speaker identification
+3. **Summarize** — generate summary and action items after meeting ends
+4. **Search** — full text search across past transcripts
+
+## Scale estimates
+- Daily active meetings: 500,000
+- Peak simultaneous meetings: 100,000
+- Audio data per meeting: ~50MB
+- Daily audio storage: ~25TB
+- Transcript lines per meeting: ~500
+- Daily transcript lines: 250 million
+
+## Why scale changes architecture
+- 100k simultaneous meetings → Kafka with 100k partitions, horizontal STT scaling
+- 25TB audio/day → object storage (S3), not PostgreSQL
+- 250M transcript lines/day → Elasticsearch for search, not PostgreSQL
+- GPU clusters needed for real-time STT at this scale
+
+## Key components
+
+### Audio ingestion service
+Captures the real-time audio stream from the meeting.
+Splits it into small chunks (every 1-2 seconds) and sends
+to the STT model for processing.
+
+### Speech-to-Text (STT) model
+Converts audio chunks to text. Uses models like OpenAI Whisper
+or a custom-trained model. Runs on GPU for speed.
+Outputs: text + confidence score + timestamp per word.
+
+### Speaker diarization
+Identifies who is speaking at any given moment.
+Separates overlapping voices and assigns speaker labels.
+One of the hardest problems in the system.
+
+### WebSocket service
+Keeps a persistent open connection to each user's browser.
+Pushes new transcript text the moment STT produces it.
+Why not polling? — polling asks every second, wastes resources,
+adds latency. WebSockets push instantly, one connection per user.
+
+### LLM summarization
+After meeting ends, full transcript is sent to an LLM
+with a prompt: "summarize this meeting, extract action items,
+identify key decisions."
+Runs async — user doesn't wait during the meeting.
+
+### Search (Elasticsearch)
+Indexes every transcript line after the meeting.
+Allows full text search across all past meetings.
+Why not PostgreSQL? — Postgres text search is slow at scale.
+Elasticsearch is built specifically for fast full-text search.
+
+---
+
+## Data model
+
+### meetings
+
+| Column     | Type      | Notes                          |
+| ---------- | --------- | ------------------------------ |
+| id         | UUID      | primary key                    |
+| title      | VARCHAR   | meeting name                   |
+| status     | VARCHAR   | recording/processing/completed |
+| duration   | INTEGER   | seconds                        |
+| created_at | TIMESTAMP | when meeting started           |
+| user_id    | UUID      | who owns the meeting           |
+
+### transcript_lines
+
+| Column          | Type      | Notes                  |
+| --------------- | --------- | ---------------------- |
+| id              | UUID      | primary key            |
+| meeting_id      | UUID      | foreign key → meetings |
+| speaker_id      | UUID      | who said it            |
+| content         | TEXT      | what was said          |
+| timestamp       | TIMESTAMP | when it was said       |
+| sequence_number | INTEGER   | order of lines         |
+
+### summaries
+
+| Column       | Type      | Notes                      |
+| ------------ | --------- | -------------------------- |
+| id           | UUID      | primary key                |
+| meeting_id   | UUID      | foreign key → meetings     |
+| summary_text | TEXT      | LLM generated summary      |
+| action_items | TEXT      | extracted action items     |
+| created_at   | TIMESTAMP | when summary was generated |
+
+### users
+
+| Column     | Type      | Notes                |
+| ---------- | --------- | -------------------- |
+| id         | UUID      | primary key          |
+| email      | VARCHAR   | unique               |
+| name       | VARCHAR   | display name         |
+| created_at | TIMESTAMP | when account created |
+
+### meeting_participants
+
+| Column     | Type    | Notes                  |
+| ---------- | ------- | ---------------------- |
+| meeting_id | UUID    | foreign key → meetings |
+| user_id    | UUID    | foreign key → users    |
+| role       | VARCHAR | host/participant       |
+
+---
+
+## Hardest problems
+
+### 1. Speaker diarization
+
+Separating overlapping voices and correctly attributing each
+line of transcript to the right speaker in real time.
+Hard because: accents, background noise, multiple people
+talking at once, new speakers joining mid-meeting.
+
+### 2. Real-time latency
+
+Audio chunk → STT → WebSocket push → browser render
+must happen in under 2 seconds. Every step adds latency.
+STT model inference on GPU is the biggest bottleneck.
+
+### 3. Scale
+
+10,000 simultaneous meetings = 10,000 audio streams being
+processed at the same time. Each needs its own STT pipeline,
+WebSocket connection, and storage writes.
+Solution: horizontal scaling of audio ingestion and STT services.
+
+---
+
+## Failure modes
+
+| Failure             | User impact                       | Mitigation                              |
+| ------------------- | --------------------------------- | --------------------------------------- |
+| STT model goes down | Transcription stops               | Fallback to backup STT provider         |
+| WebSocket drops     | User stops seeing live transcript | Auto-reconnect, replay missed lines     |
+| LLM unavailable     | No summary generated              | Queue the request, retry when available |
+| Storage goes down   | Transcript lost                   | Write to multiple replicas              |
+
+---
+
+## Key design decisions
+
+| Decision                 | Why                                                    |
+| ------------------------ | ------------------------------------------------------ |
+| WebSockets not polling   | Polling wastes resources, adds latency                 |
+| Async LLM summarization  | User doesn't wait during meeting                       |
+| Elasticsearch for search | PostgreSQL text search too slow at scale               |
+| Chunked audio processing | Can't wait for full meeting to end before transcribing |
+| GPU for STT              | CPU inference too slow for real-time requirements      |
+
+---
+
+## How this differs from LinkLite
+
+| Aspect          | LinkLite                | Otter.ai                                    |
+| --------------- | ----------------------- | ------------------------------------------- |
+| Data type       | URLs                    | Audio + text                                |
+| Real-time       | No                      | Yes — WebSockets                            |
+| AI component    | None                    | STT model + LLM                             |
+| Storage         | PostgreSQL + Redis      | PostgreSQL + object storage + Elasticsearch |
+| Hardest problem | Scale redirects cheaply | Speaker diarization at scale                |
+
+## Kafka in the Otter.ai pipeline
+
+### Why Kafka?
+
+STT model shouldn't directly call WebSocket, PostgreSQL and
+Elasticsearch. If any service goes down, STT crashes too.
+Kafka decouples them — STT drops message and moves on.
+
+### Topics
+
+- `raw-audio-chunks` — audio ingestion → STT model
+- `transcript-lines` — STT model → 3 consumer groups
+
+### Consumer groups
+
+- WebSocket servers — push transcript to browser in real time
+- PostgreSQL writers — store transcript permanently
+- Elasticsearch indexers — index for search
+
+### Partitioning strategy
+
+One partition per meeting — guarantees transcript lines
+for the same meeting are processed in order.
+10,000 simultaneous meetings = 10,000 partitions.
+
+### Failure handling
+
+If Elasticsearch goes down — WebSocket and PostgreSQL
+keep working. Messages wait in Kafka. When Elasticsearch
+recovers — reads from last offset, catches up automatically.
+
+## STT model choices
+
+| Type                    | Examples                                              | When to use                                                         |
+| ----------------------- | ----------------------------------------------------- | ------------------------------------------------------------------- |
+| Third party API         | OpenAI Whisper API, Google Speech-to-Text, AssemblyAI | Small apps, under 10k minutes/day, pay per minute                   |
+| Self-hosted open source | Whisper (open source), wav2vec 2.0                    | Medium scale, when API costs too high, need privacy                 |
+| Custom trained model    | Otter/Google/Amazon proprietary models                | Large scale, millions of dollars to train, best accuracy for domain |
+
+**Decision rule:**
+
+- Under 10k min/day → third party API
+- 10k–1M min/day → self-hosted Whisper on GPU
+- Over 1M min/day → custom trained model
+- Privacy required → self-hosted regardless of scale
+
+**Why not API at Otter's scale:** 100k simultaneous meetings × 45 min
+= 4.5M minutes/day. At $0.006/min that's $27,000/day. Not viable —
+must self-host or train custom model.
+
+---
+
+## Storage types
+
+| Storage                       | Stores                              | Otter uses for                               |
+| ----------------------------- | ----------------------------------- | -------------------------------------------- |
+| Database (PostgreSQL)         | Structured rows/columns             | meetings, transcript_lines, summaries, users |
+| Object storage (S3)           | Files — audio, video, binary        | Raw meeting audio (50MB/meeting, 25TB/day)   |
+| Search engine (Elasticsearch) | Text optimized for full-text search | Indexing 250M transcript lines/day           |
+| Cache (Redis)                 | Temporary, fast reads               | Active meeting state, session data           |
+
+**Simple rule:**
+
+- Files/audio/video → object storage (S3)
+- Structured relational data → database (PostgreSQL)
+- Full text search at scale → search engine (Elasticsearch)
+- Temporary fast reads → cache (Redis)
+
+**Small app equivalent for storage:**
+
+- Object storage → Cloudinary, Firebase Storage
+- Search → PostgreSQL full-text search (works up to a few million rows)
+
+**Large app equivalent:**
+
+- Object storage → AWS S3, GCS, Azure Blob
+- Search → Elasticsearch, Typesense, Algolia
+
+## Architecture Diagrams
+
+### Full pipeline — audio to summary
+
+```mermaid
+flowchart TD
+    A[Meeting audio stream] --> B[Audio ingestion service]
+    B --> C[STT model — Whisper/custom\naudio → text chunks]
+    C --> D[Speaker diarization\nwho said what]
+    D --> E[Kafka topic: transcript-lines]
+
+    E --> F[Consumer group 1\nWebSocket service]
+    E --> G[Consumer group 2\nPostgreSQL writer]
+    E --> H[Consumer group 3\nElasticsearch indexer]
+
+    F --> I[User sees transcript\nlive in browser]
+    G --> J[Transcript stored\npermanently]
+    H --> K[Transcript indexed\nfor search]
+
+    J --> L{Meeting ends}
+    L --> M[LLM — Claude/GPT\ngenerate summary + action items]
+    M --> N[Summary stored\ndisplayed to user]
+```
+
+### Kafka decoupling — why it matters
+
+```mermaid
+flowchart LR
+    subgraph Without Kafka
+        A1[STT model] -->|direct call| B1[WebSocket]
+        A1 -->|direct call| C1[PostgreSQL]
+        A1 -->|direct call| D1[Elasticsearch]
+        E1[❌ One service down\nbreaks everything]
+    end
+
+    subgraph With Kafka
+        A2[STT model] --> K[Kafka topic]
+        K --> B2[WebSocket]
+        K --> C2[PostgreSQL]
+        K --> D2[Elasticsearch]
+        E2[✅ One service down\nothers keep working]
+    end
+```
