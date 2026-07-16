@@ -1,175 +1,153 @@
 # WhatsApp — System Design Case Study
 
-## What it is
+---
 
-A real-time messaging app used by 2 billion people globally.
-Core product: send and receive messages instantly across any network.
+## 1. Functional Requirements
+
+- Send and receive text messages, images, videos, voice notes
+- Voice and video calls between users
+- Group messaging — create groups, add/remove members
+- Message delivery status — sent, delivered, read (tick system)
+- Search across past messages and contacts
+
+**Users:** 2 billion people globally across every type of network and device.
 
 ---
 
-## Functional requirements
+## 2. Non-Functional Requirements
 
-1. Send and receive messages — text, images, videos, voice notes
-2. Voice and video calls — real-time audio/video between users
-3. Group messaging — create groups, add/remove members, group calls
-4. Search — find messages, contacts, media across chat history
-5. Privacy controls — last seen, read receipts, profile visibility
-
-## Non-functional requirements
-
-1. Low latency — message delivered under 100ms on good network
-2. Reliability — 99.99% uptime, 2 billion people depend on it
-3. Storage — undelivered messages held 30 days, media on device
-4. End-to-end encryption — WhatsApp servers never see message content
+| Requirement     | Target                                                |
+| --------------- | ----------------------------------------------------- |
+| Message latency | Delivered under 100ms on good network                 |
+| Availability    | 99.99% uptime                                         |
+| Scalability     | 100 billion messages per day                          |
+| Privacy         | End-to-end encryption — WhatsApp never reads messages |
+| Offline support | Messages held up to 30 days for offline users         |
 
 ---
 
-## Scale estimates
+## 3. Back-of-the-Envelope Calculations
 
-| Metric                   | Estimate      |
-| ------------------------ | ------------- |
-| Daily active users       | 1 billion     |
-| Messages per day         | 100 billion   |
-| Messages per second      | ~1.15 million |
-| Average message size     | ~1KB          |
-| Daily text storage       | ~100TB        |
-| Daily storage with media | ~1 petabyte   |
+| Metric                                  | Estimate                          |
+| --------------------------------------- | --------------------------------- |
+| Daily active users                      | 1 billion                         |
+| Messages per day                        | 100 billion                       |
+| Messages per second                     | 100B ÷ 86,400 = ~1.15 million/sec |
+| Average message size                    | ~1KB (text)                       |
+| Daily text storage                      | 100B × 1KB = ~100TB               |
+| Media messages (30% of traffic)         | ~30 billion/day                   |
+| Average media size                      | 1MB                               |
+| Daily media storage                     | ~30 petabytes                     |
+| Peak simultaneous WebSocket connections | ~300 million                      |
+
+**Key insight:** Text is manageable (100TB/day). Media is the storage problem (30PB/day). Media must NOT travel through message servers.
 
 ---
 
-## The 3 core flows
+## 4. High-Level Design Overview
 
-### Flow 1 — Online messaging (both users online)
+```mermaid
+flowchart TD
+    A[Sender phone] -->|WebSocket| B[Message server]
+    B --> C{Recipient online?}
 
-Sender phone
-↓
-WebSocket connection → Message server
-↓
-Check if recipient is online → YES
-↓
-Push to recipient's WebSocket connection
-↓
-Recipient phone receives message
-↓
-ACK sent back → double tick on sender's phone
-↓
-Recipient opens message → blue tick
+    C -->|YES| D[Push via WebSocket]
+    D --> E[Recipient phone]
+    E -->|ACK| F[Double tick]
+    E -->|Opens| G[Blue tick]
 
-### Flow 2 — Offline messaging (recipient offline)
+    C -->|NO| H[Offline queue\nPostgreSQL]
+    H --> I{Recipient\ncomes online}
+    I --> J[Deliver queued\nmessages in order]
+    J -->|ACK| F
 
-Sender phone → WebSocket → Message server
-↓
-Check if recipient is online → NO
-↓
-Store in offline queue (database)
-↓
-Recipient comes back online → WebSocket reconnects
-↓
-Server checks offline queue
-↓
-Delivers all queued messages in order
-↓
-ACK sent → double tick appears on sender's phone
+    A -->|Media| K[Upload to\nmedia server S3]
+    K --> L[URL sent as\ntext message]
+    L --> B
+```
 
-### Flow 3 — Media sending
+**The two flows:**
 
-Sender selects photo
-↓
+**Online messaging:**
+
+```
+Sender → WebSocket → Message server
+    → checks presence service → recipient online
+    → push to recipient WebSocket → ACK → double tick
+```
+
+**Offline messaging:**
+
+```
+Sender → WebSocket → Message server
+    → checks presence service → recipient offline
+    → store in offline queue (PostgreSQL)
+    → recipient reconnects → messages delivered in order
+    → ACK → double tick
+```
+
+**Media flow:**
+
+```
 Photo encrypted on device
-↓
-Uploaded directly to media server (S3-like storage)
-↓
-Media server returns URL + encryption key
-↓
-URL sent as text message through normal message flow
-↓
-Recipient phone receives URL
-↓
-Downloads photo directly from media server
-↓
-Decrypts using key → photo appears in chat
+    → uploaded to S3 directly (bypasses message server)
+    → S3 returns URL + encryption key
+    → URL sent as text through normal message flow
+    → recipient downloads from S3 directly
+```
 
 ---
 
-## Key components
+## 5. Trade-offs
 
-### WebSocket service
+### Trade-off 1: WebSocket vs HTTP polling
 
-Keeps persistent connection between each phone and server.
-Why not HTTP polling? Polling drains battery, adds latency.
-WebSocket stays open — server pushes messages instantly.
+|                         | HTTP Polling             | WebSocket                    |
+| ----------------------- | ------------------------ | ---------------------------- |
+| Latency                 | Up to 1 second           | Milliseconds                 |
+| Battery drain           | High — constant requests | Low — one open connection    |
+| Server load at 1B users | 1B requests/sec          | 1B open connections          |
+| **Choose when**         | Infrequent updates       | Real-time continuous updates |
 
-### Message server
+**Decision:** WebSocket — messages must feel instant. 1 second delay on every message feels broken.
 
-Receives messages, checks recipient status, routes or queues.
-Does NOT store messages long-term — only undelivered ones.
-Handles 1.15 million messages per second across many servers.
+### Trade-off 2: Where to store media
 
-### Offline queue (database)
+|                     | Through message server                | Direct to S3                    |
+| ------------------- | ------------------------------------- | ------------------------------- |
+| Message server load | Massive — video files kill throughput | Zero — server only handles URLs |
+| Latency             | High — upload + route + download      | Low — direct transfer           |
+| Encryption          | Server sees content                   | Client encrypts before upload   |
+| **Choose when**     | Small files only                      | Any media at scale              |
 
-Holds messages for offline users — max 30 days.
-Messages deleted after delivery ACK received.
-Ordered by timestamp — messages delivered in correct order.
+**Decision:** Direct to S3 — message server handles only tiny text messages.
 
-### Media server (object storage)
+### Trade-off 3: Offline queue storage
 
-Stores encrypted photos, videos, voice notes.
-Never sees unencrypted content — encryption happens on device.
-CDN in front for fast downloads globally.
+|                  | Redis                              | PostgreSQL                  |
+| ---------------- | ---------------------------------- | --------------------------- |
+| Speed            | Faster                             | Slower                      |
+| Durability       | Data lost on restart (without AOF) | Durable — survives crashes  |
+| Message ordering | Harder to guarantee                | Easy with sequence numbers  |
+| **Choose when**  | Ephemeral, speed-critical          | Messages must never be lost |
 
-### Presence service
-
-Tracks who is online/offline in real time.
-Powers "last seen" and online indicators.
-Checked by message server before routing vs queuing.
-
----
-
-## The tick system — how it works
-
-| Tick             | Meaning             | Triggered by          |
-| ---------------- | ------------------- | --------------------- |
-| Single grey tick | Delivered to server | Server ACK            |
-| Double grey tick | Delivered to device | Recipient device ACK  |
-| Double blue tick | Read by recipient   | Recipient opened chat |
-
-Each tick is a separate ACK message flowing back through the system.
+**Decision:** PostgreSQL — losing an offline message is unacceptable.
 
 ---
 
-## End-to-end encryption
-
-WhatsApp uses the Signal protocol.
-Keys generated on your device — WhatsApp never has them.
-Messages encrypted before leaving your phone.
-Server routes encrypted blobs — cannot read content.
-Recipient's device decrypts using their private key.
-
----
-
-## Sharding strategy
-
-2 billion users — can't fit on one server.
-Shard by user_id using consistent hashing.
-Each user mapped to a specific message server.
-When you send a message — routed to recipient's assigned server.
-Adding new servers only moves a small slice of users.
-
----
-
-## Data model
+## 6. Data Modeling
 
 ### messages
 
-| Column       | Type      | Notes                         |
-| ------------ | --------- | ----------------------------- |
-| id           | UUID      | unique per message            |
-| sender_id    | UUID      | who sent it                   |
-| recipient_id | UUID      | who receives it               |
-| content      | BLOB      | encrypted — server can't read |
-| status       | VARCHAR   | sent/delivered/read           |
-| created_at   | TIMESTAMP | when sent                     |
-| delivered_at | TIMESTAMP | when delivered                |
+| Column       | Type      | Notes                          |
+| ------------ | --------- | ------------------------------ |
+| id           | UUID      | primary key                    |
+| sender_id    | UUID      | who sent it                    |
+| recipient_id | UUID      | who receives it                |
+| content      | BLOB      | encrypted — server cannot read |
+| status       | VARCHAR   | sent/delivered/read            |
+| created_at   | TIMESTAMP | when sent                      |
+| delivered_at | TIMESTAMP | when delivered                 |
 
 ### offline_queue
 
@@ -183,81 +161,189 @@ Adding new servers only moves a small slice of users.
 
 ### media
 
-| Column      | Type      | Notes                      |
-| ----------- | --------- | -------------------------- |
-| id          | UUID      | media ID                   |
-| uploader_id | UUID      | who uploaded               |
-| url         | TEXT      | location in object storage |
-| size_bytes  | INTEGER   | file size                  |
-| mime_type   | VARCHAR   | image/video/audio          |
-| expires_at  | TIMESTAMP | when deleted from server   |
+| Column      | Type      | Notes                              |
+| ----------- | --------- | ---------------------------------- |
+| id          | UUID      | media ID                           |
+| uploader_id | UUID      | who uploaded                       |
+| s3_url      | TEXT      | location in object storage         |
+| size_bytes  | INTEGER   | file size                          |
+| mime_type   | VARCHAR   | image/video/audio                  |
+| expires_at  | TIMESTAMP | deleted from server after download |
+
+### groups
+
+| Column     | Type      | Notes        |
+| ---------- | --------- | ------------ |
+| id         | UUID      | group ID     |
+| name       | VARCHAR   | group name   |
+| created_by | UUID      | creator      |
+| created_at | TIMESTAMP | when created |
+
+### group_members
+
+| Column    | Type      | Notes                |
+| --------- | --------- | -------------------- |
+| group_id  | UUID      | foreign key → groups |
+| user_id   | UUID      | foreign key → users  |
+| role      | VARCHAR   | admin/member         |
+| joined_at | TIMESTAMP | when they joined     |
 
 ---
 
-## Failure modes
+## 7. Deep Dives
 
-| Failure                | User impact                          | Mitigation                            |
-| ---------------------- | ------------------------------------ | ------------------------------------- |
-| Message server crashes | Messages lost or delayed             | Offline queue persists in DB          |
-| WebSocket drops        | App reconnects automatically         | Client retry with exponential backoff |
-| Media server down      | Images don't load                    | CDN caches recently accessed media    |
-| Offline queue full     | Message delivery fails after 30 days | User notified, message dropped        |
+### Deep dive 1: The tick system
 
----
-
-## How WhatsApp differs from LinkLite
-
-| Aspect          | LinkLite                | WhatsApp                            |
-| --------------- | ----------------------- | ----------------------------------- |
-| Protocol        | HTTP REST               | WebSocket (persistent)              |
-| State           | Stateless servers       | Stateful — user assigned to server  |
-| Storage         | PostgreSQL              | Sharded DB + object storage         |
-| Scale           | Thousands of users      | 2 billion users                     |
-| Encryption      | None (v1)               | End-to-end (Signal protocol)        |
-| Hardest problem | Cache redirects cheaply | Real-time delivery at 1.15M msg/sec |
-
-## Architecture Diagrams
-
-### Online vs offline message flow
-
-```mermaid
-flowchart TD
-    A[Sender phone] -->|WebSocket| B[Message server]
-    B --> C{Is recipient online?}
-
-    C -->|YES| D[Push to recipient\nWebSocket connection]
-    D --> E[Recipient phone\nreceives message]
-    E -->|ACK| F[Double tick\non sender phone]
-    E -->|Opens message| G[Blue tick]
-
-    C -->|NO| H[Store in\noffline queue]
-    H --> I{Recipient comes\nback online}
-    I --> J[WebSocket reconnects]
-    J --> K[Server delivers\nqueued messages in order]
-    K -->|ACK| F
-```
-
-### Media sending flow
+Each tick is a separate ACK flowing back through the system.
 
 ```mermaid
 flowchart LR
-    A[Sender selects photo] --> B[Encrypted on device]
-    B --> C[Upload directly\nto media server S3]
-    C --> D[Media server returns\nURL + encryption key]
-    D --> E[URL sent as text\nthrough message server]
-    E --> F[Recipient receives URL]
-    F --> G[Downloads from\nmedia server directly]
-    G --> H[Decrypts with key]
-    H --> I[Photo appears in chat]
-
-    note1[Message server never\nsees the actual photo]
-```
-
-### The tick system
-
-```mermaid
-flowchart LR
-    A[Message sent] -->|Server ACK| B[Single grey tick]
-    B -->|Device ACK| C[Double grey tick]
+    A[Message sent] -->|Server receives| B[Single grey tick]
+    B -->|Device receives| C[Double grey tick]
     C -->|Chat opened| D[Double blue tick]
 ```
+
+**What triggers each tick:**
+
+- Single tick → message server ACKs receipt
+- Double tick → recipient device ACKs receipt
+- Blue tick → recipient app sends read receipt when chat opened
+
+**Privacy setting:** Users can disable read receipts — blue tick never sent. But delivery receipt (double grey) cannot be disabled.
+
+### Deep dive 2: End-to-end encryption
+
+**WhatsApp uses the Signal protocol.**
+
+```
+Keys generated on your device — WhatsApp never has them
+    ↓
+Message encrypted before leaving your phone
+    ↓
+Server routes encrypted blob — cannot read content
+    ↓
+Recipient device decrypts using private key
+    ↓
+Even WhatsApp employees cannot read your messages
+```
+
+**Group message encryption challenge:**
+In a group of 256 members — sender encrypts the message 256 times, once with each member's public key. Server routes 256 encrypted copies. This is why large groups can be slow.
+
+### Deep dive 3: Presence service
+
+**Powers "last seen" and online indicators.**
+
+```
+Phone connects → presence service marks user online
+Phone disconnects → marked offline + timestamp recorded
+Other users request status → presence service responds
+```
+
+**Scale challenge:** 1 billion users, each checking presence of their contacts. Presence is eventually consistent — slight delay in "online" indicator is acceptable.
+
+### Deep dive 4: Sharding strategy
+
+**1 billion users can't fit on one message server.**
+
+- Shard by `user_id` using consistent hashing
+- Each user mapped to a specific message server
+- Sender's message routed to recipient's assigned server
+- Adding servers only moves a small slice of users
+
+### Deep dive 5: WebSocket reconnection
+
+**What happens when your phone switches from WiFi to 4G:**
+
+```
+WiFi drops → WebSocket connection dies
+    ↓
+Client detects no pong response to ping
+    ↓
+Client reconnects → new WebSocket to same server
+    (consistent hashing ensures same server)
+    ↓
+Server checks offline queue
+    ↓
+Delivers any messages that arrived during disconnect
+```
+
+---
+
+## 8. Final Design and Recap
+
+```mermaid
+flowchart LR
+    subgraph Client
+        A[Phone]
+    end
+
+    subgraph Routing
+        B[Load balancer]
+        C[Message server\nsharded by user_id]
+        D[Presence service]
+    end
+
+    subgraph Storage
+        E[PostgreSQL\noffline queue]
+        F[S3\nmedia storage]
+    end
+
+    A -->|WebSocket| B
+    B --> C
+    C --> D
+    C --> E
+    A -->|Media upload| F
+    F -->|URL| C
+```
+
+**Key decisions recap:**
+
+- WebSocket → real-time delivery, battery efficient
+- Media to S3 directly → message server never sees large files
+- PostgreSQL for offline queue → messages never lost
+- Signal protocol → true end-to-end encryption
+- Consistent hashing → user always reaches same server
+- Presence service → separate from message routing
+
+---
+
+## 9. Breadth — Monitoring, Testing, Deployments, Cost, Security
+
+### Monitoring
+
+- Message delivery latency — p50, p95, p99
+- Offline queue depth — messages waiting per user
+- WebSocket connection count — active users
+- Media upload/download success rate
+- Presence service accuracy
+
+### Testing
+
+- Unit tests on encryption/decryption logic
+- Integration tests on full message flow
+- Load tests simulating 1.15M messages/second
+- Chaos engineering — kill random servers, verify no message loss
+
+### Deployments
+
+- Message servers stateless where possible — sessions in Redis
+- Rolling deployments — no downtime
+- Feature flags — new encryption versions rolled out gradually
+
+### Cost
+
+| Component                | Cost driver                                   |
+| ------------------------ | --------------------------------------------- |
+| Message servers          | Compute — 1.15M msg/sec requires many servers |
+| S3 media storage         | 30PB/day — largest cost                       |
+| PostgreSQL offline queue | Moderate — messages deleted after delivery    |
+| CDN for media            | Significant — media downloaded globally       |
+
+### Security
+
+- End-to-end encryption — Signal protocol
+- Keys never leave user devices
+- Media encrypted before upload
+- No message content stored on servers after delivery
+- Metadata (who messaged who, when) stored but not content
