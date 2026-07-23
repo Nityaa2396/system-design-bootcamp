@@ -8,6 +8,7 @@ class Link(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     short_code = Column(String(10), unique=True, nullable=False, index=True)
+    owner_id = Column(String, nullable=True, index=True)
     original_url = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)
@@ -21,3 +22,11 @@ class ClickEvent(Base):
     clicked_at = Column(DateTime(timezone=True), server_default=func.now())
     user_agent = Column(Text, nullable=True)
     referer = Column(Text, nullable=True)
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
