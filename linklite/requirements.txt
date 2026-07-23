@@ -7,3 +7,5 @@ python-dotenv
 alembic
 kafka-python
 qdrant-client
+python-jose[cryptography]
+passlib[bcrypt]
