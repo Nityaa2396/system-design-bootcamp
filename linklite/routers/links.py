@@ -1,3 +1,5 @@
+from auth import get_current_user
+from models import User
 from database import redis, SessionLocal, get_db
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from models import Link, ClickEvent
@@ -60,21 +62,18 @@ def check_rate_limit(client_ip: str):
 def create_link(
     payload: LinkCreate,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     client_ip = request.client.host
     check_rate_limit(client_ip)
 
-    # idempotency check
     idempotency_key = request.headers.get("Idempotency-Key")
     if idempotency_key:
         cached = redis.get(f"idempotency:{idempotency_key}")
         if cached:
             import json
-            return JSONResponse(
-                status_code=201,
-                content=json.loads(cached)
-            )
+            return JSONResponse(status_code=201, content=json.loads(cached))
 
     slug = payload.custom_slug or get_unique_slug(db)
 
@@ -82,12 +81,15 @@ def create_link(
     if existing:
         raise HTTPException(status_code=409, detail="Slug already taken")
 
-    link = Link(short_code=slug, original_url=payload.original_url)
+    link = Link(
+        short_code=slug,
+        original_url=payload.original_url,
+        owner_id=current_user.id
+    )
     db.add(link)
     db.commit()
     db.refresh(link)
 
-    # store result in redis for idempotency
     if idempotency_key:
         import json
         redis.setex(
