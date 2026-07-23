@@ -5,6 +5,8 @@ import models
 import logging
 import time
 import uuid
+from routers import auth
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,4 +41,5 @@ async def log_requests(request: Request, call_next):
 def health():
     return {"status": "ok"}
 
+app.include_router(auth.router)
 app.include_router(links.router)
