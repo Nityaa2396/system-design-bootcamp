@@ -381,3 +381,5 @@ flowchart LR
 - License enforcement — subscription verified server-side
 - Piracy prevention — audio fingerprinting detects leaked content
 - GDPR — listening history deletable on request
+
+![Alt text](image.png)
