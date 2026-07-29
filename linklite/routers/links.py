@@ -2,6 +2,7 @@ from auth import get_current_user
 from sqlalchemy import func, text
 from datetime import datetime, timedelta
 import json
+from datetime import datetime
 from models import User
 from database import redis, SessionLocal, get_db
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
@@ -88,6 +89,7 @@ def create_link(
         short_code=slug,
         original_url=payload.original_url,
         owner_id=current_user.id
+        expires_at=payload.expires_at
     )
     db.add(link)
     db.commit()
@@ -175,6 +177,14 @@ def redirect_link(
 
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
+
+    if link.expires_at and link.expires_at < datetime.utcnow():
+    # invalidate cache
+    try:
+        redis.delete(f"link:{slug}")
+    except Exception:
+        pass
+    raise HTTPException(status_code=410, detail="Link has expired")
 
     # try to cache — but don't crash if Redis is down
     try:
