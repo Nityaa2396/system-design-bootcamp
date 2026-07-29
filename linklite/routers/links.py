@@ -3,6 +3,7 @@ from sqlalchemy import func, text
 from datetime import datetime, timedelta
 import json
 from datetime import timezone
+from models import Link, ClickEvent, User
 from models import User
 from database import redis, SessionLocal, get_db
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
@@ -145,6 +146,70 @@ def get_trending(db: Session = Depends(get_db)):
     redis.setex("trending:links", 300, json.dumps(trending))
 
     return {"trending": trending, "cached": False}
+
+@router.get("/v1/links/{link_id}/stats")
+def get_link_stats(
+    link_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # verify link exists and belongs to current user
+    link = db.query(Link).filter(
+        Link.id == link_id,
+        Link.owner_id == current_user.id,
+        Link.is_deleted == False
+    ).first()
+
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+
+    # total clicks
+    total_clicks = db.query(ClickEvent).filter(
+        ClickEvent.link_id == link_id
+    ).count()
+
+    # clicks per day (last 7 days)
+    clicks_per_day = db.execute(text("""
+        SELECT DATE(clicked_at) as day, COUNT(*) as clicks
+        FROM click_events
+        WHERE link_id = :link_id
+        AND clicked_at > NOW() - INTERVAL '7 days'
+        GROUP BY DATE(clicked_at)
+        ORDER BY day DESC
+    """), {"link_id": link_id}).fetchall()
+
+    # top referrers
+    top_referrers = db.execute(text("""
+        SELECT 
+            COALESCE(NULLIF(referer, ''), 'Direct') as source,
+            COUNT(*) as clicks
+        FROM click_events
+        WHERE link_id = :link_id
+        GROUP BY referer
+        ORDER BY clicks DESC
+        LIMIT 5
+    """), {"link_id": link_id}).fetchall()
+
+    return {
+        "link": {
+            "id": link.id,
+            "short_code": link.short_code,
+            "original_url": link.original_url,
+            "created_at": link.created_at,
+            "expires_at": link.expires_at
+        },
+        "analytics": {
+            "total_clicks": total_clicks,
+            "clicks_per_day": [
+                {"day": str(row.day), "clicks": row.clicks}
+                for row in clicks_per_day
+            ],
+            "top_referrers": [
+                {"source": row.source, "clicks": row.clicks}
+                for row in top_referrers
+            ]
+        }
+    }
 
 @router.get("/{slug}")
 def redirect_link(
