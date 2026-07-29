@@ -1,4 +1,7 @@
 from auth import get_current_user
+from sqlalchemy import func, text
+from datetime import datetime, timedelta
+import json
 from models import User
 from database import redis, SessionLocal, get_db
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
@@ -103,6 +106,43 @@ def create_link(
         )
 
     return link
+
+@router.get("/v1/links/trending")
+def get_trending(db: Session = Depends(get_db)):
+    # check cache first
+    cached = redis.get("trending:links")
+    if cached:
+        return {"trending": json.loads(cached), "cached": True}
+
+    # query DB for top 10 links in last 24 hours
+    since = datetime.utcnow() - timedelta(hours=24)
+    
+    results = db.execute(text("""
+        SELECT ce.link_id, COUNT(*) as click_count, 
+               l.short_code, l.original_url
+        FROM click_events ce
+        JOIN links l ON ce.link_id = l.id
+        WHERE ce.clicked_at > :since
+        AND l.is_deleted = false
+        GROUP BY ce.link_id, l.short_code, l.original_url
+        ORDER BY click_count DESC
+        LIMIT 10
+    """), {"since": since}).fetchall()
+
+    trending = [
+        {
+            "short_code": row.short_code,
+            "original_url": row.original_url,
+            "clicks_24h": row.click_count,
+            "url": f"/{row.short_code}"
+        }
+        for row in results
+    ]
+
+    # cache for 5 minutes
+    redis.setex("trending:links", 300, json.dumps(trending))
+
+    return {"trending": trending, "cached": False}
 
 @router.get("/{slug}")
 def redirect_link(
