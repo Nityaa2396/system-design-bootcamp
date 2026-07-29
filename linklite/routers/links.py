@@ -2,7 +2,7 @@ from auth import get_current_user
 from sqlalchemy import func, text
 from datetime import datetime, timedelta
 import json
-from datetime import datetime
+from datetime import timezone
 from models import User
 from database import redis, SessionLocal, get_db
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
@@ -88,7 +88,7 @@ def create_link(
     link = Link(
         short_code=slug,
         original_url=payload.original_url,
-        owner_id=current_user.id
+        owner_id=current_user.id,
         expires_at=payload.expires_at
     )
     db.add(link)
@@ -153,7 +153,6 @@ def redirect_link(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    # try cache first — but handle Redis being down
     try:
         cached_url = redis.get(f"link:{slug}")
         if cached_url:
@@ -168,7 +167,6 @@ def redirect_link(
     except Exception as e:
         print(f"REDIS ERROR: {e} — falling back to DB")
 
-    # cache miss or redis down — query DB
     print(f"CACHE MISS: {slug}")
     link = db.query(Link).filter(
         Link.short_code == slug,
@@ -178,15 +176,13 @@ def redirect_link(
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
 
-    if link.expires_at and link.expires_at < datetime.utcnow():
-    # invalidate cache
-    try:
-        redis.delete(f"link:{slug}")
-    except Exception:
-        pass
-    raise HTTPException(status_code=410, detail="Link has expired")
+    if link.expires_at and link.expires_at.replace(tzinfo=None) < datetime.utcnow():
+        try:
+            redis.delete(f"link:{slug}")
+        except Exception:
+            pass
+        raise HTTPException(status_code=410, detail="Link has expired")
 
-    # try to cache — but don't crash if Redis is down
     try:
         redis.setex(f"link:{slug}", 3600, link.original_url)
     except Exception as e:
@@ -200,5 +196,3 @@ def redirect_link(
     )
 
     return RedirectResponse(url=link.original_url, status_code=302)
-
-        
