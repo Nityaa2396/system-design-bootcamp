@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LinkLite — Short links. Big reach.</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0d0d0d;color:#fff;min-height:100vh;overflow-x:hidden}
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:1.25rem 3rem;background:rgba(0,0,0,0.1);backdrop-filter:blur(16px)}
+.logo{font-size:1rem;font-weight:700;color:#fff}
+.nav-links{display:flex;gap:2rem;font-size:0.875rem;color:rgba(255,255,255,0.6)}
+.nav-links span{cursor:pointer;transition:color 0.15s}.nav-links span:hover{color:#fff}
+.nav-pill{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:999px;padding:0.4rem 1.1rem;font-size:0.8rem;font-weight:500;cursor:pointer;transition:all 0.15s}
+.nav-pill:hover{background:rgba(255,255,255,0.2)}
+.hero{position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8rem 2rem 4rem;text-align:center;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:linear-gradient(135deg,#1a0533 0%,#2d1b69 20%,#7c3aed 40%,#db2777 60%,#f97316 80%,#dc2626 100%);z-index:0}
+.orb1{position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(139,92,246,0.55),transparent 70%);top:-150px;right:-120px;animation:fl 8s ease-in-out infinite}
+.orb2{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(236,72,153,0.5),transparent 70%);bottom:-100px;left:-100px;animation:fl 10s ease-in-out infinite reverse}
+.orb3{position:absolute;width:350px;height:350px;border-radius:50%;background:radial-gradient(circle,rgba(251,146,60,0.4),transparent 70%);top:30%;right:8%;animation:fl 12s ease-in-out infinite 2s}
+@keyframes fl{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-30px) scale(1.05)}}
+.hero-content{position:relative;z-index:1;max-width:760px;width:100%}
+.hero-tag{display:inline-flex;align-items:center;gap:0.4rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.18);border-radius:999px;padding:0.35rem 0.9rem;font-size:0.75rem;font-weight:500;color:rgba(255,255,255,0.85);margin-bottom:1.5rem;backdrop-filter:blur(8px)}
+.hdot{width:6px;height:6px;border-radius:50%;background:#4ade80;box-shadow:0 0 6px #4ade80}
+h1{font-size:clamp(3rem,7vw,5.5rem);font-weight:900;letter-spacing:-0.04em;line-height:1.05;margin-bottom:1rem;text-shadow:0 2px 24px rgba(0,0,0,0.2)}
+.hero-sub{font-size:1.1rem;color:rgba(255,255,255,0.65);margin-bottom:2.5rem}
+.sbox{display:flex;background:rgba(255,255,255,0.07);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.2);border-radius:14px;padding:6px;gap:6px;max-width:640px;margin:0 auto;transition:border-color 0.2s,box-shadow 0.2s}
+.sbox:focus-within{border-color:rgba(255,255,255,0.45);box-shadow:0 0 0 3px rgba(255,255,255,0.08)}
+.sbox input{flex:1;background:transparent;border:none;outline:none;padding:0.75rem 1rem;color:#fff;font-size:1rem;font-family:'Inter',sans-serif}
+.sbox input::placeholder{color:rgba(255,255,255,0.35)}
+.sdiv{width:1px;background:rgba(255,255,255,0.12);margin:6px 0;flex-shrink:0}
+.slug-in{max-width:140px;flex:0 0 auto}
+.btn-go{background:#fff;color:#0d0d0d;border:none;border-radius:10px;padding:0.75rem 1.75rem;font-size:0.95rem;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0}
+.btn-go:hover{background:rgba(255,255,255,0.9);transform:scale(1.02)}
+.result-strip{max-width:640px;margin:1rem auto 0;background:rgba(255,255,255,0.08);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.18);border-radius:12px;padding:1rem 1.25rem;display:none;align-items:center;justify-content:space-between;gap:1rem}
+.result-strip.show{display:flex}
+.result-lbl{font-size:0.62rem;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.2rem}
+.result-short{font-size:1rem;font-weight:600;color:#fff;text-decoration:none}
+.result-short:hover{text-decoration:underline}
+.btn-cp{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:8px;padding:0.45rem 1rem;font-size:0.8rem;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.15s;flex-shrink:0}
+.btn-cp:hover{background:rgba(255,255,255,0.22)}
+.alert{max-width:640px;margin:0.6rem auto 0;padding:0.65rem 1rem;border-radius:8px;font-size:0.82rem;display:none;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25)}
+.alert.show{display:block}
+.alert.error{color:#fca5a5}
+.alert.success{color:#86efac}
+.main{background:linear-gradient(180deg,#1a0533 0%,#0f0220 100%);padding:4rem 2rem 5rem}
+.main-inner{max-width:960px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.section-label{font-size:0.7rem;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:1.5rem;grid-column:1/-1}
+.card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;overflow:hidden;backdrop-filter:blur(12px)}
+.card-head{padding:1rem 1.4rem;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:0.72rem;font-weight:600;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em}
+.card-body{padding:1.4rem}
+.tabs{display:flex;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:3px;margin-bottom:1rem}
+.tab{flex:1;padding:0.4rem;border-radius:8px;font-size:0.82rem;font-weight:500;cursor:pointer;border:none;background:none;font-family:'Inter',sans-serif;color:rgba(255,255,255,0.4);transition:all 0.15s;text-align:center}
+.tab.active{background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.15)}
+.aform{display:none;flex-direction:column;gap:0.65rem}
+.aform.active{display:flex}
+.fi{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:0.7rem 0.9rem;font-size:0.875rem;font-family:'Inter',sans-serif;color:#fff;outline:none;transition:border-color 0.15s,box-shadow 0.15s}
+.fi:focus{border-color:rgba(167,139,250,0.7);box-shadow:0 0 0 3px rgba(139,92,246,0.15)}
+.fi::placeholder{color:rgba(255,255,255,0.25)}
+.btn-auth{width:100%;padding:0.75rem;border-radius:10px;border:none;background:linear-gradient(135deg,#7c3aed,#db2777);color:#fff;font-size:0.875rem;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.15s}
+.btn-auth:hover{opacity:0.9;transform:translateY(-1px)}
+.logged-in{display:none;align-items:center;justify-content:space-between;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);border-radius:10px;padding:0.875rem 1rem}
+.logged-in.show{display:flex}
+.logged-email{font-size:0.82rem;font-weight:500;color:#c4b5fd}
+.btn-out{font-size:0.75rem;color:rgba(255,255,255,0.35);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif}
+.btn-out:hover{color:#fff}
+.trend-item{display:flex;align-items:center;gap:0.875rem;padding:0.875rem 0;border-bottom:1px solid rgba(255,255,255,0.06);text-decoration:none;color:inherit;transition:transform 0.1s}
+.trend-item:last-child{border-bottom:none;padding-bottom:0}
+.trend-item:hover{transform:translateX(4px)}
+.trend-num{font-size:0.68rem;font-weight:700;color:rgba(255,255,255,0.2);min-width:18px}
+.trend-info{flex:1;min-width:0}
+.trend-code{font-size:0.9rem;font-weight:600;color:#c4b5fd;margin-bottom:0.2rem}
+.trend-url{font-size:0.72rem;color:rgba(255,255,255,0.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trend-ct{background:rgba(167,139,250,0.15);color:#c4b5fd;font-size:0.68rem;font-weight:600;padding:0.2rem 0.55rem;border-radius:999px;border:1px solid rgba(167,139,250,0.2);white-space:nowrap}
+.empty{text-align:center;padding:2.5rem;color:rgba(255,255,255,0.3);font-size:0.875rem}
+.refresh-btn{font-size:0.72rem;color:rgba(167,139,250,0.7);background:none;border:none;cursor:pointer;font-family:'Inter',sans-serif;font-weight:500}
+.refresh-btn:hover{color:#c4b5fd}
+@media(max-width:768px){.main-inner{grid-template-columns:1fr}.sbox{flex-wrap:wrap}.slug-in{max-width:100%!important;border-left:none!important}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">LinkLite</div>
+  <div class="nav-links"><span>Features</span><span>Pricing</span><span>Docs</span></div>
+  <div class="nav-pill" id="nav-pill">Sign in</div>
+</nav>
+
+<div class="hero">
+  <div class="hero-bg"></div>
+  <div class="orb1"></div><div class="orb2"></div><div class="orb3"></div>
+  <div class="hero-content">
+    <div class="hero-tag"><div class="hdot"></div>Free · Fast · Trackable</div>
+    <h1>Short links.<br>Big reach.</h1>
+    <p class="hero-sub">Turn any URL into a clean, shareable link in seconds.</p>
+    <div class="sbox">
+      <input type="url" id="url-input" placeholder="Paste your long URL here…"/>
+      <div class="sdiv"></div>
+      <input type="text" id="slug-input" class="slug-in" placeholder="Custom slug"/>
+      <button class="btn-go" onclick="shortenLink()">Shorten →</button>
+    </div>
+    <div class="result-strip" id="result-strip">
+      <div><div class="result-lbl">Your short link</div><a class="result-short" id="result-short" href="#" target="_blank"></a></div>
+      <button class="btn-cp" onclick="copyLink()">Copy</button>
+    </div>
+    <div class="alert" id="alert"></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="main-inner">
+    <div class="section-label">Dashboard</div>
+    <div class="card">
+      <div class="card-head"><span class="card-title">Account</span></div>
+      <div class="card-body">
+        <div class="logged-in" id="logged-in">
+          <span class="logged-email" id="logged-email"></span>
+          <button class="btn-out" onclick="logout()">Sign out</button>
+        </div>
+        <div id="auth-wrap">
+          <div class="tabs">
+            <button class="tab active" onclick="switchTab('login')">Sign in</button>
+            <button class="tab" onclick="switchTab('register')">Register</button>
+          </div>
+          <div class="aform active" id="login-form">
+            <input class="fi" type="email" id="login-email" placeholder="Email"/>
+            <input class="fi" type="password" id="login-pw" placeholder="Password"/>
+            <button class="btn-auth" onclick="login()">Sign in</button>
+          </div>
+          <div class="aform" id="reg-form">
+            <input class="fi" type="email" id="reg-email" placeholder="Email"/>
+            <input class="fi" type="password" id="reg-pw" placeholder="Password"/>
+            <button class="btn-auth" onclick="register()">Create account</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">Trending · 24h</span>
+        <button class="refresh-btn" onclick="loadTrending()">↻ Refresh</button>
+      </div>
+      <div class="card-body" id="trend-body"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='https://linklite-api-production.up.railway.app';
+let token=localStorage.getItem('ll_token'),email=localStorage.getItem('ll_email');
+if(token&&email)showIn();
+loadTrending();
+function switchTab(t){document.querySelectorAll('.tab').forEach((x,i)=>x.classList.toggle('active',(i===0&&t==='login')||(i===1&&t==='register')));document.getElementById('login-form').classList.toggle('active',t==='login');document.getElementById('reg-form').classList.toggle('active',t==='register');}
+async function login(){const e=document.getElementById('login-email').value,p=document.getElementById('login-pw').value;try{const r=await fetch(`${API}/v1/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:e,password:p})});const d=await r.json();if(d.access_token){token=d.access_token;email=e;localStorage.setItem('ll_token',token);localStorage.setItem('ll_email',email);showIn();showAlert('Signed in','success');}else showAlert(d.detail||'Failed','error');}catch{showAlert('Connection error','error');}}
+async function register(){const e=document.getElementById('reg-email').value,p=document.getElementById('reg-pw').value;try{const r=await fetch(`${API}/v1/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:e,password:p})});const d=await r.json();if(d.access_token){token=d.access_token;email=e;localStorage.setItem('ll_token',token);localStorage.setItem('ll_email',email);showIn();showAlert('Account created','success');}else showAlert(d.detail||'Failed','error');}catch{showAlert('Connection error','error');}}
+function logout(){token=null;email=null;localStorage.removeItem('ll_token');localStorage.removeItem('ll_email');document.getElementById('logged-in').classList.remove('show');document.getElementById('auth-wrap').style.display='';document.getElementById('nav-pill').textContent='Sign in';}
+function showIn(){document.getElementById('logged-email').textContent=email;document.getElementById('logged-in').classList.add('show');document.getElementById('auth-wrap').style.display='none';document.getElementById('nav-pill').textContent=email.split('@')[0];}
+async function shortenLink(){if(!token){showAlert('Sign in to create links','error');return;}const url=document.getElementById('url-input').value.trim(),slug=document.getElementById('slug-input').value.trim();if(!url){showAlert('Enter a URL','error');return;}const body={original_url:url};if(slug)body.custom_slug=slug;try{const r=await fetch(`${API}/v1/links`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify(body)});const d=await r.json();if(d.short_code){const s=`${API}/${d.short_code}`;document.getElementById('result-short').href=s;document.getElementById('result-short').textContent=s;document.getElementById('result-strip').classList.add('show');document.getElementById('url-input').value='';document.getElementById('slug-input').value='';showAlert('Created!','success');setTimeout(loadTrending,1500);}else showAlert(d.detail||'Failed','error');}catch{showAlert('Connection error','error');}}
+function copyLink(){const l=document.getElementById('result-short').textContent;navigator.clipboard.writeText(l).then(()=>{const b=document.querySelector('.btn-cp');b.textContent='✓ Copied';setTimeout(()=>b.textContent='Copy',2000);});}
+async function loadTrending(){const b=document.getElementById('trend-body');b.innerHTML='<div class="empty">Loading…</div>';try{const r=await fetch(`${API}/v1/links/trending`);const d=await r.json();if(!d.trending||!d.trending.length){b.innerHTML='<div class="empty">No trending links yet.<br>Create and share links to see them here.</div>';return;}b.innerHTML=d.trending.map((l,i)=>`<a class="trend-item" href="${API}/${l.short_code}" target="_blank"><span class="trend-num">${i+1}</span><div class="trend-info"><div class="trend-code">/${l.short_code}</div><div class="trend-url">${l.original_url}</div></div><span class="trend-ct">${l.clicks_24h} clicks</span></a>`).join('');}catch{b.innerHTML='<div class="empty">Could not load.</div>';}}
+function showAlert(msg,type){const el=document.getElementById('alert');el.textContent=msg;el.className=`alert show ${type}`;setTimeout(()=>el.classList.remove('show'),3000);}
+</script>
+</body>
+</html>
