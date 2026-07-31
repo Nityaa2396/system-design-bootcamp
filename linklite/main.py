@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from database import engine, Base
 from routers import links
 import models
@@ -43,3 +44,7 @@ def health():
 
 app.include_router(auth.router)
 app.include_router(links.router)
+
+@app.get("/")
+def frontend():
+    return FileResponse("frontend.html")
